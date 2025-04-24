@@ -18,9 +18,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-              <span className="text-white font-bold">IP</span>
+              <span className="text-white font-bold">IPX</span>
             </div>
-            <h1 className="text-xl font-bold">IPChain</h1>
+            <h1 className="text-xl font-bold">Intellectual Property Management</h1>
           </div>
           <WalletConnect />
         </div>

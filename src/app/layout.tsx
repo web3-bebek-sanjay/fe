@@ -7,7 +7,7 @@ import { WalletProvider } from "@/context/WalletContext"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "IPChain - Intellectual Property Management",
+  title: "IPX - Intellectual Property Management",
   description: "Manage your intellectual property assets on the blockchain",
 }
 
