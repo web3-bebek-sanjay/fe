@@ -1,35 +1,12 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import { motion } from "framer-motion"
+import React, { useState } from "react"
 import { UploadIcon, PlusIcon, XIcon } from "lucide-react"
+import { IPFormData } from "./IPRegistration"
 
 interface RegistrationFormProps {
-  formData: {
-    title: string
-    description: string
-    category: string
-    tags: string[]
-    licenseTypes: string[]
-    price: number
-    royaltyPercentage: number
-    file: File | null
-    filePreview: string
-  }
-  onChange: (
-    data: Partial<{
-      title: string
-      description: string
-      category: string
-      tags: string[]
-      licenseTypes: string[]
-      price: number
-      royaltyPercentage: number
-      file: File | null
-      filePreview: string
-    }>,
-  ) => void
+  formData: IPFormData
+  onChange: (data: Partial<IPFormData>) => void
   onSubmit: () => void
   isWalletConnected: boolean
 }
@@ -71,20 +48,30 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     })
   }
 
-  const toggleLicenseType = (type: string) => {
-    if (formData.licenseTypes.includes(type)) {
-      onChange({
-        licenseTypes: formData.licenseTypes.filter((t) => t !== type),
-      })
-    } else {
-      onChange({
-        licenseTypes: [...formData.licenseTypes, type],
-      })
-    }
-  }
+  const isCommercialRent = formData.licenseMode === "commercial" && formData.licenseType === "rent";
+  const isPersonal = formData.licenseMode === "personal";
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+      {/* License info banner */}
+      <div className={`p-4 rounded-lg mb-6 ${
+        isPersonal 
+          ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" 
+          : "bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
+      }`}>
+        <p className={`text-sm ${
+          isPersonal 
+            ? "text-green-800 dark:text-green-300" 
+            : "text-orange-800 dark:text-orange-300"
+        }`}>
+          {isPersonal ? (
+            "Personal license grants full rights for personal use with a one-time payment."
+          ) : (
+            "Commercial rent license allows time-limited commercial usage with a daily rental fee."
+          )}
+        </p>
+      </div>
+
       <h3 className="text-lg font-semibold mb-4">IP Details</h3>
       <div className="space-y-4 mb-6">
         <div>
@@ -140,7 +127,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               type="text"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && addTag()}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
               className="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
               placeholder="Add tags"
             />
@@ -215,84 +202,105 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           </div>
         </div>
       </div>
-      <h3 className="text-lg font-semibold mb-4">License Options</h3>
+      <h3 className="text-lg font-semibold mb-4">Pricing</h3>
       <div className="space-y-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium mb-2">License Types</label>
-          <div className="flex flex-wrap gap-3">
-            <div
-              className={`px-4 py-2 rounded-lg border cursor-pointer ${formData.licenseTypes.includes("buy") ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"}`}
-              onClick={() => toggleLicenseType("buy")}
-            >
-              Buy (Perpetual)
-            </div>
-            <div
-              className={`px-4 py-2 rounded-lg border cursor-pointer ${formData.licenseTypes.includes("rent") ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"}`}
-              onClick={() => toggleLicenseType("rent")}
-            >
-              Rent (Time-limited)
-            </div>
-          </div>
-        </div>
+        {/* Base Price - shown for all license types */}
         <div>
           <label className="block text-sm font-medium mb-1">
             Base Price (ETH)
-            <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">(for purchase or 30-day rental)</span>
+            {isPersonal && 
+              <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">(one-time payment)</span>
+            }
           </label>
           <input
             type="number"
             min="0.001"
             step="0.001"
-            value={formData.price}
+            value={formData.basePrice}
             onChange={(e) =>
               onChange({
-                price: Number.parseFloat(e.target.value),
+                basePrice: Number.parseFloat(e.target.value) || 0,
               })
             }
             className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            Royalty Percentage
-            <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">(for secondary sales)</span>
-          </label>
-          <div className="flex items-center gap-4">
+        
+        {/* Rent Price - shown only for commercial rent license */}
+        {isCommercialRent && (
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Rent Price (ETH/day)
+            </label>
             <input
-              type="range"
-              min="0"
-              max="20"
-              value={formData.royaltyPercentage}
+              type="number"
+              min="0.0001"
+              step="0.0001"
+              value={formData.rentPrice}
               onChange={(e) =>
                 onChange({
-                  royaltyPercentage: Number.parseInt(e.target.value),
+                  rentPrice: Number.parseFloat(e.target.value) || 0,
                 })
               }
-              className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
             />
-            <div className="w-12 text-center font-medium">{formData.royaltyPercentage}%</div>
+            <p className="text-xs text-slate-500 mt-1">
+              Buyers will set their own rental duration when purchasing.
+            </p>
           </div>
+        )}
+        
+        {formData.licenseMode === "commercial" && formData.licenseType === "remix" && (
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Royalty Percentage
+              <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">(for future profits)</span>
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="0"
+                max="20"
+                value={formData.royaltyPercentage}
+                onChange={(e) =>
+                  onChange({
+                    royaltyPercentage: Number.parseInt(e.target.value),
+                  })
+                }
+                className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="w-12 text-center font-medium">{formData.royaltyPercentage}%</div>
+            </div>
+          </div>
+        )}
+
+        {/* Pricing Summary */}
+        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg">
+          <div className="flex justify-between items-center">
+            <span className="font-medium">Base Price:</span>
+            <span className="font-bold">{formData.basePrice} ETH</span>
+          </div>
+          
+          {isCommercialRent && (
+            <div className="flex justify-between items-center mt-1">
+              <span className="font-medium">Rent Price:</span>
+              <span className="font-bold">{formData.rentPrice} ETH/day</span>
+            </div>
+          )}
         </div>
       </div>
-      <motion.button
-        whileHover={{
-          scale: 1.02,
-        }}
-        whileTap={{
-          scale: 0.98,
-        }}
+      <button
         onClick={onSubmit}
         disabled={
           !isWalletConnected ||
           !formData.title ||
           !formData.category ||
-          !formData.file ||
-          formData.licenseTypes.length === 0
+          !formData.file
         }
         className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
-        {isWalletConnected ? "Register & Mint IP" : "Connect Wallet to Register"}
-      </motion.button>
+        {isWalletConnected ? "Register IP" : "Connect Wallet to Register"}
+      </button>
     </div>
   )
 }
