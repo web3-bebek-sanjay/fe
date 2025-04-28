@@ -3,8 +3,5 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "environmentVariables": {
-    "NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID": "production"
-  }
+  "framework": "nextjs"
 }
