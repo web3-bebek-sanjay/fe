@@ -18,7 +18,7 @@ const { chains, publicClient } = configureChains(
 );
 
 const { connectors } = getDefaultWallets({
-  appName: 'Royalty Management App',
+  appName: IPX',
   projectId: 'YOUR_PROJECT_ID', // Get this from WalletConnect Cloud
   chains,
 });
