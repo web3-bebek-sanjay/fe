@@ -1,14 +1,16 @@
-"use client"
+'use client';
 
-import React, { useState } from "react"
-import { UploadIcon, PlusIcon, XIcon } from "lucide-react"
-import { IPFormData } from "./IPRegistration"
+import React, { useState, useEffect } from 'react';
+import { UploadIcon } from 'lucide-react';
+import { IPFormData, LicenseType } from './IPRegistration';
 
 interface RegistrationFormProps {
-  formData: IPFormData
-  onChange: (data: Partial<IPFormData>) => void
-  onSubmit: () => void
-  isWalletConnected: boolean
+  formData: IPFormData;
+  onChange: (data: Partial<IPFormData>) => void;
+  onSubmit: () => void;
+  isWalletConnected: boolean;
+  selectedLicenseOptions: LicenseType[];
+  setSelectedLicenseOptions: (options: LicenseType[]) => void;
 }
 
 export const RegistrationForm: React.FC<RegistrationFormProps> = ({
@@ -16,61 +18,158 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   onChange,
   onSubmit,
   isWalletConnected,
+  selectedLicenseOptions,
+  setSelectedLicenseOptions,
 }) => {
-  const [tagInput, setTagInput] = useState("")
-  const categories = ["Art", "Music", "Photography", "Literature", "Software", "Research", "Design", "Gaming", "Other"]
+  const categories = [
+    'Art',
+    'Music',
+    'Photography',
+    'Literature',
+    'Software',
+    'Research',
+    'Design',
+    'Gaming',
+    'Other',
+  ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
     reader.onload = (event) => {
       onChange({
         file,
         filePreview: event.target?.result as string,
-      })
-    }
-    reader.readAsDataURL(file)
-  }
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
-  const addTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+  const toggleLicenseOption = (option: LicenseType) => {
+    // For commercial mode, we only allow a single option
+    if (formData.licenseMode === 'commercial') {
+      // Set the selected option as the only one
+      // Add explicit type to make TypeScript happy
+      const newOptions: LicenseType[] = [option];
+
+      // Update form data
       onChange({
-        tags: [...formData.tags, tagInput.trim()],
-      })
-      setTagInput("")
+        licenseType: option,
+        commercialType: option === 'personal' ? undefined : option,
+      });
+
+      setSelectedLicenseOptions(newOptions);
+      return;
     }
-  }
 
-  const removeTag = (tag: string) => {
+    // For personal mode, just set personal
+    // Add explicit type to make TypeScript happy
+    const newOptions: LicenseType[] = ['personal'];
     onChange({
-      tags: formData.tags.filter((t) => t !== tag),
-    })
-  }
+      licenseType: 'personal',
+      commercialType: undefined,
+    });
 
-  const isCommercialRent = formData.licenseMode === "commercial" && formData.licenseType === "rent";
-  const isPersonal = formData.licenseMode === "personal";
+    setSelectedLicenseOptions(newOptions);
+  };
+
+  const isPersonal = formData.licenseType === 'personal';
+  const isRent = formData.licenseType === 'rent';
+  const isRemix = formData.licenseType === 'remix';
+  const isCommercial = formData.licenseMode === 'commercial';
+
+  // Check if specific options are selected
+  const isRentBuySelected =
+    isCommercial && selectedLicenseOptions.includes('personal');
+  const isRentSelected = selectedLicenseOptions.includes('rent');
+  const isRemixSelected = selectedLicenseOptions.includes('remix');
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
       {/* License info banner */}
-      <div className={`p-4 rounded-lg mb-6 ${
-        isPersonal 
-          ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800" 
-          : "bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
-      }`}>
-        <p className={`text-sm ${
-          isPersonal 
-            ? "text-green-800 dark:text-green-300" 
-            : "text-orange-800 dark:text-orange-300"
-        }`}>
-          {isPersonal ? (
-            "Personal license grants full rights for personal use with a one-time payment."
-          ) : (
-            "Commercial rent license allows time-limited commercial usage with a daily rental fee."
-          )}
+      <div
+        className={`p-4 rounded-lg mb-6 ${
+          isPersonal && !isCommercial
+            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+            : isRent || isRentBuySelected
+            ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'
+            : 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800'
+        }`}
+      >
+        <p
+          className={`text-sm ${
+            isPersonal && !isCommercial
+              ? 'text-green-800 dark:text-green-300'
+              : isRent || isRentBuySelected
+              ? 'text-orange-800 dark:text-orange-300'
+              : 'text-purple-800 dark:text-purple-300'
+          }`}
+        >
+          {isPersonal && !isCommercial
+            ? 'Personal license grants full rights for personal use with a one-time payment.'
+            : isRentBuySelected
+            ? 'Commercial buy license allows unlimited usage with a one-time payment.'
+            : isRent
+            ? 'Commercial rent license allows time-limited commercial usage with a daily rental fee.'
+            : 'Remix license allows modification and derivative works with royalty payments.'}
         </p>
       </div>
+
+      {/* Commercial License Options - only shown for commercial mode */}
+      {isCommercial && (
+        <>
+          <h3 className="text-lg font-semibold mb-3">
+            Commercial License Options
+          </h3>
+          <div className="space-y-4 mb-6">
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => toggleLicenseOption('personal')}
+                className={`px-4 py-2 rounded-lg font-medium border ${
+                  isRentBuySelected
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                }`}
+              >
+                Rent Buy
+              </button>
+
+              <button
+                type="button"
+                onClick={() => toggleLicenseOption('rent')}
+                className={`px-4 py-2 rounded-lg font-medium border ${
+                  isRentSelected
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                }`}
+              >
+                Rent
+              </button>
+
+              <button
+                type="button"
+                onClick={() => toggleLicenseOption('remix')}
+                className={`px-4 py-2 rounded-lg font-medium border ${
+                  isRemixSelected
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                }`}
+              >
+                Remix
+              </button>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-lg text-sm text-yellow-800 dark:text-yellow-300">
+              <p>
+                <strong>Note:</strong> For commercial licenses, you can select
+                only one option: "Rent Buy", "Rent", or "Remix".
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       <h3 className="text-lg font-semibold mb-4">IP Details</h3>
       <div className="space-y-4 mb-6">
@@ -121,62 +220,31 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Tags</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
-              placeholder="Add tags"
-            />
-            <button type="button" onClick={addTag} className="p-2 rounded-lg bg-blue-600 text-white">
-              <PlusIcon size={18} />
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {formData.tags.map((tag) => (
-              <div
-                key={tag}
-                className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md text-sm"
-              >
-                <span>{tag}</span>
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                >
-                  <XIcon size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
           <label className="block text-sm font-medium mb-1">File Upload</label>
           <div
             className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-            onClick={() => document.getElementById("file-upload")?.click()}
+            onClick={() => document.getElementById('file-upload')?.click()}
           >
             {formData.filePreview ? (
               <div className="flex flex-col items-center">
                 <div className="w-32 h-32 mb-4 overflow-hidden rounded-lg">
                   <img
-                    src={formData.filePreview || "/placeholder.svg"}
+                    src={formData.filePreview || '/placeholder.svg'}
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">{formData.file?.name}</div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  {formData.file?.name}
+                </div>
                 <button
                   type="button"
                   onClick={(e) => {
-                    e.stopPropagation()
+                    e.stopPropagation();
                     onChange({
                       file: null,
-                      filePreview: "",
-                    })
+                      filePreview: '',
+                    });
                   }}
                   className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
                 >
@@ -204,57 +272,14 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       </div>
       <h3 className="text-lg font-semibold mb-4">Pricing</h3>
       <div className="space-y-4 mb-6">
-        {/* Base Price - shown for all license types */}
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            Base Price (ETH)
-            {isPersonal && 
-              <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">(one-time payment)</span>
-            }
-          </label>
-          <input
-            type="number"
-            min="0.001"
-            step="0.001"
-            value={formData.basePrice}
-            onChange={(e) =>
-              onChange({
-                basePrice: Number.parseFloat(e.target.value) || 0,
-              })
-            }
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
-          />
-        </div>
-        
-        {/* Rent Price - shown only for commercial rent license */}
-        {isCommercialRent && (
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Rent Price (ETH/day)
-            </label>
-            <input
-              type="number"
-              min="0.0001"
-              step="0.0001"
-              value={formData.rentPrice}
-              onChange={(e) =>
-                onChange({
-                  rentPrice: Number.parseFloat(e.target.value) || 0,
-                })
-              }
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              Buyers will set their own rental duration when purchasing.
-            </p>
-          </div>
-        )}
-        
-        {formData.licenseMode === "commercial" && formData.licenseType === "remix" && (
+        {/* For Remix, only show royalty percentage */}
+        {isRemixSelected ? (
           <div>
             <label className="block text-sm font-medium mb-1">
               Royalty Percentage
-              <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">(for future profits)</span>
+              <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">
+                (for original creator)
+              </span>
             </label>
             <div className="flex items-center gap-4">
               <input
@@ -269,23 +294,125 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 }
                 className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
               />
-              <div className="w-12 text-center font-medium">{formData.royaltyPercentage}%</div>
+              <div className="w-12 text-center font-medium">
+                {formData.royaltyPercentage}%
+              </div>
             </div>
           </div>
+        ) : (
+          // For non-remix options
+          <>
+            {/* Base Price - show for personal license or rent buy */}
+            {(selectedLicenseOptions.includes('personal') ||
+              isRentBuySelected) && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Base Price (ETH)
+                  <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">
+                    (one-time payment)
+                  </span>
+                </label>
+                <input
+                  type="number"
+                  min="0.001"
+                  step="0.001"
+                  value={formData.basePrice}
+                  onChange={(e) =>
+                    onChange({
+                      basePrice: Number.parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+                />
+              </div>
+            )}
+
+            {/* Rent Price - show when rent is selected or for rent buy */}
+            {(isRentSelected || isRentBuySelected) && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Rent Price (ETH/day)
+                  {isRentBuySelected && (
+                    <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">
+                      (optional rental option)
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  min="0.0001"
+                  step="0.0001"
+                  value={formData.rentPrice}
+                  onChange={(e) =>
+                    onChange({
+                      rentPrice: Number.parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Buyers will set their own rental duration when purchasing.
+                </p>
+              </div>
+            )}
+          </>
         )}
 
         {/* Pricing Summary */}
         <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg">
-          <div className="flex justify-between items-center">
-            <span className="font-medium">Base Price:</span>
-            <span className="font-bold">{formData.basePrice} ETH</span>
-          </div>
-          
-          {isCommercialRent && (
-            <div className="flex justify-between items-center mt-1">
-              <span className="font-medium">Rent Price:</span>
-              <span className="font-bold">{formData.rentPrice} ETH/day</span>
+          {isRemixSelected ? (
+            // Summary for remix option
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Royalty Percentage:</span>
+              <span className="font-bold">{formData.royaltyPercentage}%</span>
             </div>
+          ) : (
+            // Summary for non-remix options
+            <>
+              {selectedLicenseOptions.length > 0 && (
+                <>
+                  <div className="font-medium text-sm mb-2">License Type:</div>
+                  {isRentBuySelected && (
+                    <>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-medium">
+                          Commercial - Rent Buy:
+                        </span>
+                        <span className="font-bold">
+                          {formData.basePrice} ETH
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-medium pl-4 text-sm text-slate-600 dark:text-slate-400">
+                          + Optional Rental:
+                        </span>
+                        <span className="font-medium text-slate-600 dark:text-slate-400">
+                          {formData.rentPrice} ETH/day
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  {isRentSelected && (
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-medium">Commercial - Rent:</span>
+                      <span className="font-bold">
+                        {formData.rentPrice} ETH/day
+                      </span>
+                    </div>
+                  )}
+
+                  {!isCommercial && (
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-medium">Personal:</span>
+                      <span className="font-bold">
+                        {formData.basePrice} ETH
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -295,12 +422,13 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           !isWalletConnected ||
           !formData.title ||
           !formData.category ||
-          !formData.file
+          !formData.file ||
+          selectedLicenseOptions.length === 0
         }
         className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
-        {isWalletConnected ? "Register IP" : "Connect Wallet to Register"}
+        {isWalletConnected ? 'Register IP' : 'Connect Wallet to Register'}
       </button>
     </div>
-  )
-}
+  );
+};
