@@ -20,13 +20,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   const [screenSize, setScreenSize] = useState<'mobile' | 'desktop'>('desktop')
 
   useEffect(() => {
-    // Set initial screen size
     handleResize()
     
-    // Add event listener for window resize
     window.addEventListener('resize', handleResize)
     
-    // Cleanup
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
@@ -35,7 +32,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
       setScreenSize('mobile')
     } else {
       setScreenSize('desktop')
-      setIsMobileMenuOpen(false) // Auto-close mobile menu on resize to desktop
+      setIsMobileMenuOpen(false)
     }
   }
 
