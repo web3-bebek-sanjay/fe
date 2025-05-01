@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useWallet } from '@/context/WalletContext';
+import { useAccount } from 'wagmi';
 import { Button } from '../ui/button';
 import { TabsGroup } from '../ui/TabsGroup';
 import { motion } from 'framer-motion';
@@ -15,7 +15,7 @@ import { RefreshCw } from 'lucide-react';
 import { Remix, Deposit } from './types';
 
 export const RemixManagement: React.FC = () => {
-  const { connected } = useWallet();
+  const { isConnected } = useAccount();
   const [remixes, setRemixes] = useState(mockRemixes);
   const [activeTab, setActiveTab] = useState('remixes');
   const [selectedRemix, setSelectedRemix] = useState<Remix | null>(null);
@@ -23,7 +23,6 @@ export const RemixManagement: React.FC = () => {
   const [filterOpen, setFilterOpen] = useState(false);
   const [timeRange, setTimeRange] = useState('month');
   const [isLoading, setIsLoading] = useState(true);
-
 
   // Calculate total values
   const totalRemixes = remixes.length;
@@ -73,7 +72,7 @@ export const RemixManagement: React.FC = () => {
     setRemixes(updatedRemixes);
   };
 
-  if (!connected) {
+  if (!isConnected) {
     return (
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
