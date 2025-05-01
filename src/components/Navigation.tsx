@@ -2,7 +2,7 @@
 
 import type React from 'react';
 import { motion } from 'framer-motion';
-import { FileTextIcon, DollarSignIcon } from 'lucide-react';
+import { FileTextIcon, DollarSignIcon, HistoryIcon } from 'lucide-react';
 import { LicenseIcon } from './icons/LicenseIcon';
 import { useEffect, useState } from 'react';
 
@@ -22,7 +22,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [screenSize, setScreenSize] = useState<'mobile' | 'desktop'>('desktop');
 
   useEffect(() => {
-    // Set initial screen size
     handleResize();
 
     // Add event listener for window resize
@@ -47,23 +46,31 @@ export const Navigation: React.FC<NavigationProps> = ({
       icon: <LicenseIcon size={18} />,
     },
     {
-      id: 'register',
+      id: 'registerIP',
       name: 'IP Registration',
       icon: <FileTextIcon size={18} />,
     },
     {
+      id: 'registerRemix',
+      name: 'Remix Registration',
+      icon: <FileTextIcon size={18} />,     
+    },
+    {
       id: 'royalty',
-      name: 'Royalty Management',
+      name: 'Earnings',
       icon: <DollarSignIcon size={18} />,
     },
     {
       id: 'remix',
-      name: 'Remix Management',
+      name: 'Your Remixes',
       icon: <FileTextIcon size={18} />,
     },
+    {
+      id: 'history',
+      name: 'History',
+      icon: <HistoryIcon size={18} />,
+    }
   ];
-
-  // Handle tab click with mobile menu auto-close
   const handleTabClick = (tabId: string) => {
     setActiveTab(tabId);
     if (screenSize === 'mobile') {
