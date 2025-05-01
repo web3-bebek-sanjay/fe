@@ -4,7 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { XIcon, CheckIcon, AlertCircleIcon, LoaderIcon } from "lucide-react"
-import { useWallet } from "@/context/WalletContext"
+import { useAccount } from "wagmi"
 import Image from "next/image"
 
 interface LicenseModalProps {
@@ -22,13 +22,13 @@ interface LicenseModalProps {
 }
 
 export const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, ip }) => {
-  const { connected } = useWallet()
+  const { isConnected } = useAccount()
   const [licenseType, setLicenseType] = useState<"buy" | "rent">(ip.licenseTypes.includes("buy") ? "buy" : "rent")
-  const [duration, setDuration] = useState(30) // days
+  const [duration, setDuration] = useState(30)
   const [txStatus, setTxStatus] = useState<"idle" | "pending" | "success" | "error">("idle")
 
   const handleConfirmLicense = async () => {
-    if (!connected) return
+    if (!isConnected) return
     setTxStatus("pending")
     // Simulate transaction
     setTimeout(() => {
@@ -144,10 +144,10 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, ip 
                   </div>
                   <button
                     onClick={handleConfirmLicense}
-                    disabled={!connected}
+                    disabled={!isConnected}
                     className="w-full py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                   >
-                    {connected
+                    {isConnected
                       ? `Confirm ${licenseType === "buy" ? "Purchase" : "Rental"}`
                       : "Connect Wallet to Continue"}
                   </button>
