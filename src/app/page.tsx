@@ -30,6 +30,7 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { IPX_ABI, IPX_ADDRESS } from "@/utils/constants";
+import FormRegisterIP from "@/components/FormRegisterIP";
 
 export default function Home() {
   const [account, setAccount] = useState<string>("");
@@ -91,6 +92,7 @@ export default function Home() {
           >
             Mint NFT
           </button>
+          <FormRegisterIP />
         </div>
       )}
     </main>
