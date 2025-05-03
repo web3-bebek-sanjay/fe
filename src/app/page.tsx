@@ -1,30 +1,3 @@
-// "use client"
-
-// import { useState } from "react"
-// import { Layout } from "@/components/Layout"
-// import { LicenseManagement } from "@/components/license/LicenseManagement"
-// import { IPRegistration } from "@/components/registration/IPRegistration"
-// import { RoyaltyManagement } from "@/components/royalty/RoyaltyManagement"
-// import { RemixManagement } from "@/components/remix/RemixManagement"
-// import { RemixRegistration } from "@/components/remix/RemixRegistration"
-// import { History} from "@/components/history/history"
-
-// export default function Home() {
-//   const [activeTab, setActiveTab] = useState("license")
-
-//   return (
-//     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-//       {activeTab === "license" && <LicenseManagement />}
-//       {activeTab === "registerIP" && <IPRegistration />}
-//       {activeTab === "registerRemix" && <RemixRegistration />}
-//       {activeTab === "royalty" && <RoyaltyManagement />}
-//       {activeTab === "remix" && <RemixManagement />}
-//       {activeTab === "history" && <History />}
-//     </Layout>
-//   )
-// }
-
-// IPXFrontendApp/src/app/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -36,6 +9,9 @@ export default function Home() {
   const [account, setAccount] = useState<string>("");
   const [contractName, setContractName] = useState<string>("");
   const [metadataURI, setMetadataURI] = useState<string>("");
+  const [ips, setIps] = useState<IPStruct[]>([]);
+  const [nonRemixIps, setNonRemixIps] = useState<IPStruct[]>([]);
+  const [myRemixes, setMyRemixes] = useState<RemixInfoStruct[]>([]);
 
   const connectWallet = async () => {
     if (window.ethereum) {
@@ -101,6 +77,69 @@ export default function Home() {
     }
   };
 
+  interface IPStruct {
+    title: string;
+    description: string;
+    category: bigint;
+    tag: string;
+    fileUpload: string;
+    licenseopt: number;
+    basePrice: bigint;
+    rentPrice: bigint;
+    royaltyPercentage: bigint;
+    owner: string;
+  }
+
+  interface RemixInfoStruct {
+    ip: IPStruct;
+    parentId: bigint;
+  }
+
+  const fetchIPsByOwner = async (address: string): Promise<IPStruct[]> => {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const ipx = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
+
+    const ips: IPStruct[] = await ipx.getIPsByOwner(address);
+    return ips;
+  };
+
+  const fetchNonRemixIPs = async (address: string): Promise<IPStruct[]> => {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const ipx = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
+
+    const ips: IPStruct[] = await ipx.get_non_remix(address);
+    return ips;
+  };
+
+  const fetchMyRemixes = async (address: string): Promise<RemixInfoStruct[]> => {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const ipx = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
+
+    const remixes: RemixInfoStruct[] = await ipx.getMyRemix(address);
+    return remixes;
+  };
+
+  const loadMyIPs = async () => {
+    if (!account) return;
+    const [myIPs, nonRemix, remixes] = await Promise.all([
+      fetchIPsByOwner(account),
+      fetchNonRemixIPs(account),
+      fetchMyRemixes(account),
+    ]);
+
+    setIps(myIPs);
+    setNonRemixIps(nonRemix);
+    setMyRemixes(remixes);
+  };
+
+  useEffect(() => {
+    if (account) {
+      loadMyIPs();
+    }
+  }, [account]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
@@ -133,6 +172,7 @@ export default function Home() {
             Mint NFT
           </button>
           <FormRegisterIP />
+
           <div className="mt-4">
             <button
               onClick={() => rentIP(0)}
@@ -140,26 +180,75 @@ export default function Home() {
             >
               Sewa NFT ID #1
             </button>
+
+            {ips.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold mb-2">My IPs:</h2>
+                <ul className="space-y-2">
+                  {ips.map((ip, index) => (
+                    <li key={index} className="border p-3 rounded bg-gray-100">
+                      <p className="font-bold">{ip.title}</p>
+                      <p>{ip.description}</p>
+                      <p className="text-sm text-gray-600">
+                        Rent: {ethers.formatEther(ip.rentPrice)} ETH
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {nonRemixIps.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold mb-2">Non-Remix IPs:</h2>
+                <ul className="space-y-2">
+                  {nonRemixIps.map((ip, index) => (
+                    <li key={index} className="border p-3 rounded bg-yellow-100">
+                      <p className="font-bold">{ip.title}</p>
+                      <p>{ip.description}</p>
+                      <p className="text-sm text-gray-600">
+                        Rent: {ethers.formatEther(ip.rentPrice)} ETH
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {myRemixes.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold mb-2">My Remix IPs:</h2>
+                <ul className="space-y-2">
+                  {myRemixes.map((remix, index) => (
+                    <li key={index} className="border p-3 rounded bg-blue-100">
+                      <p className="font-bold">{remix.ip.title}</p>
+                      <p>{remix.ip.description}</p>
+                      <p className="text-sm text-gray-600">Parent ID: {remix.parentId.toString()}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-
         </div>
-
       )}
     </main>
   );
 }
 
+
+
 // ryan
 // buy
 // remix
-// getipbyowners
+// getipbyowners [done]
 // getlistrent
 // getmyipremix
 // getlistrentfrommyip
 
 // alex
 // rentip [done]
-// getip []
-// getipnotownedby
-// getnonremix
-// getmyremix
+// getip [done]
+// getipnotownedby [done]
+// getnonremix [done]
+// getmyremix [done]
