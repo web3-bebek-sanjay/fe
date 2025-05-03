@@ -30,7 +30,7 @@ export function useIPXContract() {
     const provider = new ethers.BrowserProvider(window.ethereum, {
       chainId: pharosDevnet.id,
       name: pharosDevnet.name,
-      rpcUrls: pharosDevnet.rpcUrls.default.http,
+      // rpcUrls: pharosDevnet.rpcUrls.default.http,
     });
     const signer = await provider.getSigner();
 
