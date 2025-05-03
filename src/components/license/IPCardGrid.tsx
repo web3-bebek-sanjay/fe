@@ -6,6 +6,7 @@ import { IPCard } from "./IPCard"
 import { LicenseModal } from "./LicenseModal"
 import { useAccount } from "wagmi"
 import { useGetNotOwned } from "@/hooks/useGetNotOwned"
+import { IPStruct } from "@/lib/app_interface"
 
 // Mock IP data
 const mockIPData = [
@@ -76,21 +77,35 @@ export const IPCardGrid: React.FC<IPCardGridProps> = ({ searchQuery }) => {
   const { address } = useAccount()
   const { getIPsNotOwnedBy } = useGetNotOwned()
 
-  const [ips, setIps] = useState<any[]>([])
+  const [ips, setIps] = useState<IPStruct[]>([])
   const [loading, setLoading] = useState(true)
-  
+
   useEffect(() => {
     if (!address) return
+
     const fetchIPs = async () => {
       setLoading(true)
-      const data = await getIPsNotOwnedBy(address)
-      console.log(data)
 
-      setIps(data)
+      try {
+        const data = await getIPsNotOwnedBy(address)
+        // console.log(data)
+
+        await new Promise<void>((resolve) => {
+          setIps(data)
+          requestAnimationFrame(() => resolve())
+        })
+
+        console.log("State ips updated:", data)
+      } catch (err) {
+        console.error("Failed fetching IPs:", err)
+      }
+
       setLoading(false)
     }
+
     fetchIPs()
   }, [address])
+
 
   const handleCardClick = (ip: (typeof mockIPData)[0]) => {
     setSelectedIP(ip)

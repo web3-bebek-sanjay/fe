@@ -1,18 +1,6 @@
 // hooks/useGetNotOwned.ts
+import { IPStruct } from "@/lib/app_interface";
 import { useIPXContract } from "./useIPXContract";
-
-interface IPStruct {
-  title: string;
-  description: string;
-  category: bigint;
-  tag: string;
-  fileUpload: string;
-  licenseopt: number;
-  basePrice: bigint;
-  rentPrice: bigint;
-  royaltyPercentage: bigint;
-  owner: string;
-}
 
 export function useGetNotOwned() {
   const { getContract } = useIPXContract();
