@@ -36,18 +36,15 @@ export default function FormRegisterIP() {
   const [royaltyPercentage, setRoyaltyPercentage] = useState("");
   const [loading, setLoading] = useState(false);
   const [txHash, setTxHash] = useState("");
+  const [tokenId, setTokenId] = useState("");
+  const [ipData, setIpData] = useState<any>(null);
 
   const handleSubmit = async () => {
     try {
       if (!window.ethereum) throw new Error("Please install MetaMask");
       setLoading(true);
 
-      // Menambahkan RPC PharosDevnet ke provider
-      const provider = new ethers.BrowserProvider(window.ethereum, {
-        chainId: pharosDevnet.id,
-        name: pharosDevnet.name,
-        rpcUrls: pharosDevnet.rpcUrls.default.http,
-      });
+      const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
 
@@ -60,19 +57,42 @@ export default function FormRegisterIP() {
         licenseOpt,
         ethers.parseUnits(basePrice, 18),
         ethers.parseUnits(rentPrice, 18),
-        royaltyPercentage, 
-        { gasLimit: 5000000 } // coba set gasLimit lebih tinggi
+        royaltyPercentage,
+        { gasLimit: 5000000 }
       );
-      
 
-      await tx.wait();
+      const receipt = await tx.wait();
+      const event = receipt.logs.find((log) =>
+        log.address.toLowerCase() === IPX_ADDRESS.toLowerCase()
+      );
+
+      // Decode tokenId from event if emitted (optional)
+      // You may need to adjust this based on your smart contract event
+      // For now, just save tx hash
       setTxHash(tx.hash);
-      console.log()
+      console.log("Transaction Hash:", tx.hash);
     } catch (err: any) {
       alert(`Error: ${err.message}`);
-      console.log(err.message);
+      console.error(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGetIP = async () => {
+    try {
+      if (!window.ethereum) throw new Error("Please install MetaMask");
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
+
+      const ip = await contract.getIP(tokenId);
+      setIpData(ip);
+      console.log("Fetched IP:", ip);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+      console.error(err.message);
     }
   };
 
@@ -98,6 +118,33 @@ export default function FormRegisterIP() {
           ✅ Registered! Tx: <a href={`https://pharosscan.xyz/tx/${txHash}`} target="_blank" className="underline">{txHash.slice(0, 10)}...</a>
         </p>
       )}
+
+      <div className="mt-8 border-t pt-4">
+        <h3 className="text-md font-semibold mb-2">Get IP by Token ID</h3>
+        <input
+          value={tokenId}
+          onChange={(e) => setTokenId(e.target.value)}
+          className="input"
+          placeholder="Enter Token ID"
+        />
+        <button onClick={handleGetIP} className="bg-green-600 text-white py-2 px-4 rounded mt-2">
+          Fetch IP
+        </button>
+
+        {ipData && (
+          <div className="mt-4 text-sm bg-gray-100 p-3 rounded">
+            <p><strong>Title:</strong> {ipData.title}</p>
+            <p><strong>Description:</strong> {ipData.description}</p>
+            <p><strong>Category:</strong> {ipData.category.toString()}</p>
+            <p><strong>Tag:</strong> {ipData.tag}</p>
+            <p><strong>File:</strong> {ipData.file}</p>
+            <p><strong>License Option:</strong> {ipData.licenseOpt}</p>
+            <p><strong>Base Price:</strong> {ethers.formatEther(ipData.basePrice)} ETH</p>
+            <p><strong>Rent Price:</strong> {ethers.formatEther(ipData.rentPrice)} ETH</p>
+            <p><strong>Royalty %:</strong> {ipData.royaltyPercentage.toString()}%</p>
+          </div>
+        )}
+      </div>
 
       <style jsx>{`
         .input {
