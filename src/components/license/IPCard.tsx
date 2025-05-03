@@ -4,17 +4,10 @@ import type React from "react"
 import { motion } from "framer-motion"
 import { TagIcon } from "lucide-react"
 import Image from "next/image"
+import { IPStruct } from "@/lib/app_interface"
 
 interface IPCardProps {
-  ip: {
-    id: string
-    title: string
-    owner: string
-    thumbnail: string
-    licenseTypes: string[]
-    category: string
-    price: number
-  }
+  ip: IPStruct
   onClick: () => void
 }
 
@@ -32,7 +25,7 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
     >
       <div className="w-full h-48 overflow-hidden relative">
         <Image
-          src={ip.thumbnail || "/placeholder.svg"}
+          src={"/placeholder.svg"}
           alt={ip.title}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -52,18 +45,18 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
         </div>
         <div className="flex justify-between items-center">
           <div className="flex gap-2">
-            {ip.licenseTypes.includes("buy") && (
+            {ip.licenseopt === 0 && (
               <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-0.5 rounded text-xs font-medium">
                 Buy
               </span>
             )}
-            {ip.licenseTypes.includes("rent") && (
+            {ip.licenseopt === 1 && (
               <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded text-xs font-medium">
                 Rent
               </span>
             )}
           </div>
-          <div className="font-medium text-sm">{ip.price} ETH</div>
+          <div className="font-medium text-sm">{ip.basePrice} ETH</div>
         </div>
       </div>
     </motion.div>
