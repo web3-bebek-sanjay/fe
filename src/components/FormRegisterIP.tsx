@@ -33,7 +33,7 @@ export default function FormRegisterIP() {
   const [licenseOpt, setLicenseOpt] = useState(0);
   const [basePrice, setBasePrice] = useState("");
   const [rentPrice, setRentPrice] = useState("");
-  const [royaltyPercentage, setRoyaltyPercentage] = useState("");
+  const [royaltyPercentage, setRoyaltyPercentage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [txHash, setTxHash] = useState("");
   const [tokenId, setTokenId] = useState("");
@@ -48,13 +48,18 @@ export default function FormRegisterIP() {
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
 
+      console.log({
+        licenseOpt,
+        type: typeof licenseOpt,
+      });
+
       const tx = await contract.registerIP(
         title,
         description,
         category,
         tag,
         fileUpload,
-        licenseOpt,
+        Number(licenseOpt),
         ethers.parseUnits(basePrice, 18),
         ethers.parseUnits(rentPrice, 18),
         royaltyPercentage,
@@ -210,10 +215,10 @@ export default function FormRegisterIP() {
               <strong>Tag:</strong> {ipData.tag}
             </p>
             <p>
-              <strong>File:</strong> {ipData.file}
+              <strong>File:</strong> {ipData.fileUpload}
             </p>
             <p>
-              <strong>License Option:</strong> {ipData.licenseOpt}
+              <strong>License Option:</strong> {ipData.licenseopt}
             </p>
             <p>
               <strong>Base Price:</strong>{" "}

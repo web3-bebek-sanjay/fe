@@ -237,7 +237,7 @@ export default function Home() {
         category: item.ip.category,
         tag: item.ip.tag,
         file: item.ip.fileUpload,
-        licenseopt: item.ip.licenseopt,
+        licenseopt: item.ip.licenseopt.toString(),
         basePrice: ethers.formatEther(item.ip.basePrice),
         rentPrice: ethers.formatEther(item.ip.rentPrice),
         royalty: item.ip.royaltyPercentage,
