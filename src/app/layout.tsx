@@ -22,9 +22,9 @@ export default function RootLayout({
       suppressHydrationWarning
       data-qb-installed="true" >
       <body className={inter.className}>
-        {/* <Web3Provider> */}
-        {children}
-        {/* </Web3Provider> */}
+        <Web3Provider>
+          {children}
+        </Web3Provider>
       </body>
     </html >
   )
