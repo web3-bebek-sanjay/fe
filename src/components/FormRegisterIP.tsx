@@ -43,11 +43,7 @@ export default function FormRegisterIP() {
       setLoading(true);
 
       // Menambahkan RPC PharosDevnet ke provider
-      const provider = new ethers.BrowserProvider(window.ethereum, {
-        chainId: pharosDevnet.id,
-        name: pharosDevnet.name,
-        rpcUrls: pharosDevnet.rpcUrls.default.http,
-      });
+      const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
 

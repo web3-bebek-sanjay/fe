@@ -100,7 +100,7 @@ export default function Home() {
     const signer = await provider.getSigner();
     const ipx = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
 
-    const ips: IPStruct[] = await ipx.getIPsByOwner(address);
+    const ips: IPStruct[] = await ipx.getIPsNotOwnedBy(address);
     return ips;
   };
 
