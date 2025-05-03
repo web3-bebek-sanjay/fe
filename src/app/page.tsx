@@ -164,16 +164,18 @@ export default function Home() {
       const contract = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
 
       const ipData = await contract.ips(parentId);
+      console.log("Fetched IP data:", ipData);
 
       const tx = await contract.remixIP(
         ipData.title,
         ipData.description,
-        ipData.category.toNumber(),
+        ipData.category,
         ipData.tag,
-        ipData.file,
-        ipData.royaltyPercentage.toNumber(),
+        ipData.fileUpload,
+        ipData.royaltyPercentage,
         parentId
       );
+
       const receipt = await tx.wait();
       console.log("Transaction confirmed:", receipt);
       alert("IP remixeds successfully!");
