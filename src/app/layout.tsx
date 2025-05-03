@@ -17,12 +17,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-qb-installed="true" >
       <body className={inter.className}>
-        <Web3Provider>
-          {children}
-        </Web3Provider>
+        {/* <Web3Provider> */}
+        {children}
+        {/* </Web3Provider> */}
       </body>
-    </html>
+    </html >
   )
 }
