@@ -33,19 +33,27 @@ export default function FormRegisterIP() {
   const [licenseOpt, setLicenseOpt] = useState(0);
   const [basePrice, setBasePrice] = useState("");
   const [rentPrice, setRentPrice] = useState("");
-  const [royaltyPercentage, setRoyaltyPercentage] = useState("");
+  const [royaltyPercentage, setRoyaltyPercentage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [txHash, setTxHash] = useState("");
+  const [tokenId, setTokenId] = useState("");
+  const [ipData, setIpData] = useState<any>(null);
 
   const handleSubmit = async () => {
     try {
       if (!window.ethereum) throw new Error("Please install MetaMask");
       setLoading(true);
 
+
       // Menambahkan RPC PharosDevnet ke provider
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
+
+      console.log({
+        licenseOpt,
+        type: typeof licenseOpt,
+      });
 
       const tx = await contract.registerIP(
         title,
@@ -53,47 +61,181 @@ export default function FormRegisterIP() {
         category,
         tag,
         fileUpload,
-        licenseOpt,
+        Number(licenseOpt),
         ethers.parseUnits(basePrice, 18),
         ethers.parseUnits(rentPrice, 18),
-        royaltyPercentage, 
-        { gasLimit: 5000000 } // coba set gasLimit lebih tinggi
+        royaltyPercentage,
+        { gasLimit: 5000000 }
       );
-      
 
-      await tx.wait();
+      const receipt = await tx.wait();
+      const event = receipt.logs.find(
+        (log) => log.address.toLowerCase() === IPX_ADDRESS.toLowerCase()
+      );
+
+      // Decode tokenId from event if emitted (optional)
+      // You may need to adjust this based on your smart contract event
+      // For now, just save tx hash
       setTxHash(tx.hash);
-      console.log()
+      console.log("Transaction Hash:", tx.hash);
     } catch (err: any) {
       alert(`Error: ${err.message}`);
-      console.log(err.message);
+      console.error(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGetIP = async () => {
+    try {
+      if (!window.ethereum) throw new Error("Please install MetaMask");
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
+
+      const ip = await contract.getIP(tokenId);
+      setIpData(ip);
+      console.log("Fetched IP:", ip);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+      console.error(err.message);
     }
   };
 
   return (
     <div className="p-4 border rounded-xl w-full max-w-md bg-white shadow">
       <h2 className="text-lg font-bold mb-4">Register IP</h2>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} className="input" placeholder="Title" />
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="input" placeholder="Description" />
-      <input type="number" value={category} onChange={(e) => setCategory(Number(e.target.value))} className="input" placeholder="Category (uint)" />
-      <input value={tag} onChange={(e) => setTag(e.target.value)} className="input" placeholder="Tag" />
-      <input value={fileUpload} onChange={(e) => setFileUpload(e.target.value)} className="input" placeholder="File Upload (e.g., IPFS URL)" />
-      <input type="number" value={licenseOpt} onChange={(e) => setLicenseOpt(Number(e.target.value))} className="input" placeholder="License Option (uint8)" />
-      <input type="text" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} className="input" placeholder="Base Price (ETH)" />
-      <input type="text" value={rentPrice} onChange={(e) => setRentPrice(e.target.value)} className="input" placeholder="Rent Price (ETH)" />
-      <input type="number" value={royaltyPercentage} onChange={(e) => setRoyaltyPercentage(Number(e.target.value))} className="input" placeholder="Royalty (%)" />
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="input"
+        placeholder="Title"
+      />
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="input"
+        placeholder="Description"
+      />
+      <input
+        type="number"
+        value={category}
+        onChange={(e) => setCategory(Number(e.target.value))}
+        className="input"
+        placeholder="Category (uint)"
+      />
+      <input
+        value={tag}
+        onChange={(e) => setTag(e.target.value)}
+        className="input"
+        placeholder="Tag"
+      />
+      <input
+        value={fileUpload}
+        onChange={(e) => setFileUpload(e.target.value)}
+        className="input"
+        placeholder="File Upload (e.g., IPFS URL)"
+      />
+      <input
+        type="number"
+        value={licenseOpt}
+        onChange={(e) => setLicenseOpt(Number(e.target.value))}
+        className="input"
+        placeholder="License Option (uint8)"
+      />
+      <input
+        type="text"
+        value={basePrice}
+        onChange={(e) => setBasePrice(e.target.value)}
+        className="input"
+        placeholder="Base Price (ETH)"
+      />
+      <input
+        type="text"
+        value={rentPrice}
+        onChange={(e) => setRentPrice(e.target.value)}
+        className="input"
+        placeholder="Rent Price (ETH)"
+      />
+      <input
+        type="number"
+        value={royaltyPercentage}
+        onChange={(e) => setRoyaltyPercentage(Number(e.target.value))}
+        className="input"
+        placeholder="Royalty (%)"
+      />
 
-      <button onClick={handleSubmit} disabled={loading} className="mt-4 bg-blue-600 text-white py-2 px-4 rounded">
+      <button
+        onClick={handleSubmit}
+        disabled={loading}
+        className="mt-4 bg-blue-600 text-white py-2 px-4 rounded"
+      >
         {loading ? "Registering..." : "Register IP"}
       </button>
 
       {txHash && (
         <p className="mt-3 text-green-700">
-          ✅ Registered! Tx: <a href={`https://pharosscan.xyz/tx/${txHash}`} target="_blank" className="underline">{txHash.slice(0, 10)}...</a>
+          ✅ Registered! Tx:{" "}
+          <a
+            href={`https://pharosscan.xyz/tx/${txHash}`}
+            target="_blank"
+            className="underline"
+          >
+            {txHash.slice(0, 10)}...
+          </a>
         </p>
       )}
+
+      <div className="mt-8 border-t pt-4">
+        <h3 className="text-md font-semibold mb-2">Get IP by Token ID</h3>
+        <input
+          value={tokenId}
+          onChange={(e) => setTokenId(e.target.value)}
+          className="input"
+          placeholder="Enter Token ID"
+        />
+        <button
+          onClick={handleGetIP}
+          className="bg-green-600 text-white py-2 px-4 rounded mt-2"
+        >
+          Fetch IP
+        </button>
+
+        {ipData && (
+          <div className="mt-4 text-sm bg-gray-100 p-3 rounded">
+            <p>
+              <strong>Title:</strong> {ipData.title}
+            </p>
+            <p>
+              <strong>Description:</strong> {ipData.description}
+            </p>
+            <p>
+              <strong>Category:</strong> {ipData.category.toString()}
+            </p>
+            <p>
+              <strong>Tag:</strong> {ipData.tag}
+            </p>
+            <p>
+              <strong>File:</strong> {ipData.fileUpload}
+            </p>
+            <p>
+              <strong>License Option:</strong> {ipData.licenseopt}
+            </p>
+            <p>
+              <strong>Base Price:</strong>{" "}
+              {ethers.formatEther(ipData.basePrice)} ETH
+            </p>
+            <p>
+              <strong>Rent Price:</strong>{" "}
+              {ethers.formatEther(ipData.rentPrice)} ETH
+            </p>
+            <p>
+              <strong>Royalty %:</strong> {ipData.royaltyPercentage.toString()}%
+            </p>
+          </div>
+        )}
+      </div>
 
       <style jsx>{`
         .input {
