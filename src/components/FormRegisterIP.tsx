@@ -44,6 +44,8 @@ export default function FormRegisterIP() {
       if (!window.ethereum) throw new Error("Please install MetaMask");
       setLoading(true);
 
+
+      // Menambahkan RPC PharosDevnet ke provider
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(IPX_ADDRESS, IPX_ABI, signer);
