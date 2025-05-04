@@ -269,20 +269,51 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const handleRemixIP = async () => {
+  const handleRemixIP = async (data?: {
+    title: string;
+    description: string;
+    category: string;
+    fileUpload: string;
+    parentIPId?: string;
+  }) => {
     await headerGetterContract(async (contract: Contract) => {
-      const tx = await contract.remixIP(
-        title,
-        description,
-        BigInt(category),
-        tag,
-        fileUpload,
-        BigInt(royaltyPercentage),
-        BigInt(parentId),
-        txConfig
-      );
-      await tx.wait();
-      alert('IP remix created successfully!');
+      try {
+        const ipTitle = data?.title || title;
+        const ipDescription = data?.description || description;
+        const ipCategory = data?.category || category;
+        const ipFileUpload = data?.fileUpload || fileUpload;
+        const ipParentIPId = data?.parentIPId || parentId;
+
+        console.log('Final Data Being Sent to Contract:', {
+          title: ipTitle,
+          description: ipDescription,
+          category: ipCategory,
+          fileUpload: ipFileUpload,
+          parentIPId: ipParentIPId,
+        });
+
+        // Ensure valid BigInt conversions
+        console.log('BigInt conversions:', {
+          category: BigInt(ipCategory),
+        });
+
+        const tx = await contract.remixIP(
+          ipTitle,
+          ipDescription,
+          BigInt(ipCategory),
+          ipFileUpload,
+          ipParentIPId ? BigInt(ipParentIPId) : undefined,
+          { ...txConfig, gasLimit: 3_000_000 }
+        );
+
+        console.log('Transaction submitted:', tx.hash);
+        const receipt = await tx.wait();
+        console.log('Transaction confirmed:', receipt);
+        alert('Remix successfully registered!');
+      } catch (error: any) {
+        console.error('Error in handleRemixIP:', error);
+        alert('Failed to register remix. Please try again.');
+      }
     });
   };
 
