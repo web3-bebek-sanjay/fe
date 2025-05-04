@@ -2,15 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { UploadIcon } from 'lucide-react';
-import { IPFormData, LicenseType } from './IPRegistration';
+import { IPFormData } from './IPRegistration';
+import {
+  LicenseType,
+  LicenseTypeString,
+  CommercialType,
+} from '@/utils/enums';
 
 interface RegistrationFormProps {
   formData: IPFormData;
   onChange: (data: Partial<IPFormData>) => void;
   onSubmit: () => void;
   isWalletConnected: boolean;
-  selectedLicenseOptions: LicenseType[];
-  setSelectedLicenseOptions: (options: LicenseType[]) => void;
+  selectedLicenseOptions: LicenseTypeString[];
+  setSelectedLicenseOptions: (options: LicenseTypeString[]) => void;
 }
 
 export const RegistrationForm: React.FC<RegistrationFormProps> = ({
@@ -21,16 +26,14 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   selectedLicenseOptions,
   setSelectedLicenseOptions,
 }) => {
-  const categories = [
-    'Art',
-    'Music',
-    'Photography',
-    'Literature',
-    'Software',
-    'Research',
-    'Design',
-    'Gaming',
-    'Other',
+  const categoryOptions = [
+    { value: 'Art', label: 'Art' },
+    { value: 'Music', label: 'Music' },
+    { value: 'Literature', label: 'Literature' },
+    { value: 'Software', label: 'Software' },
+    { value: 'Photography', label: 'Photography' },
+    { value: 'Video', label: 'Video' },
+    { value: 'Other', label: 'Other' },
   ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,17 +49,21 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const toggleLicenseOption = (option: LicenseType) => {
+  const toggleLicenseOption = (option: LicenseTypeString) => {
     // For commercial mode, we only allow a single option
     if (formData.licenseMode === 'commercial') {
       // Set the selected option as the only one
-      // Add explicit type to make TypeScript happy
-      const newOptions: LicenseType[] = [option];
+      const newOptions: LicenseTypeString[] = [option];
 
-      // Update form data
+      // Update form data - use type guards here
       onChange({
         licenseType: option,
-        commercialType: option === 'personal' ? undefined : option,
+        commercialType:
+          option === 'personal'
+            ? undefined
+            : option === 'rent' || option === 'remix' // This should now work
+            ? (option as CommercialType) // Explicit cast to ensure type safety
+            : undefined,
       });
 
       setSelectedLicenseOptions(newOptions);
@@ -64,8 +71,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     }
 
     // For personal mode, just set personal
-    // Add explicit type to make TypeScript happy
-    const newOptions: LicenseType[] = ['personal'];
+    const newOptions: LicenseTypeString[] = ['personal'];
     onChange({
       licenseType: 'personal',
       commercialType: undefined,
@@ -204,17 +210,15 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           <label className="block text-sm font-medium mb-1">Category</label>
           <select
             value={formData.category}
-            onChange={(e) =>
-              onChange({
-                category: e.target.value,
-              })
-            }
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+            onChange={(e) => onChange({ category: e.target.value })}
+            className="form-select"
           >
-            <option value="">Select a category</option>
-            {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
+            <option value="" disabled>
+              Select category
+            </option>
+            {categoryOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
