@@ -83,7 +83,7 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
     >
       <div className="w-full h-48 overflow-hidden relative">
         <Image
-          src={imageUrl}
+          src={"/placeholder.svg"}
           alt={title}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

@@ -54,12 +54,14 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   onClose,
   ip,
 }) => {
-  const { isConnected, handleBuyIP, handleRentIP, setTokenId } = useWallet();
+  const { isConnected, handleBuyIP, handleRentIP, setTokenId, tokenId, testData } = useWallet();
 
   // Handle both data formats - structured object and array-like blockchain data
   const id = ip.id?.toString() || ip.tokenId?.toString() || '0';
   const title = ip.title || ip[1] || 'Untitled IP';
   const owner = ip.owner || ip[0] || 'Unknown';
+
+  // console.log("try to console data", ip);
 
   // Get price based on data format
   let price = 0;
@@ -76,9 +78,9 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
 
     try {
       // Log specific properties instead of the whole object
-      console.log('IP id:', ip.id || ip.tokenId);
-      console.log('IP title:', ip.title || ip[1]);
-      console.log('IP basePrice:', ip.basePrice || ip[7]);
+      // console.log('IP id:', ip.id || ip.tokenId || tokenId);
+      // console.log('IP title:', ip.title || ip[1]);
+      // console.log('IP basePrice:', ip.basePrice || ip[7]);
 
       if (ip && ip.basePrice) {
         // Continue your existing code...
@@ -103,17 +105,17 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
         }
       }
     } catch (error) {
-      console.error('Error formatting price:', error);
+      // console.error('Error formatting price:', error);
     }
   } catch (error) {
-    console.error('Error formatting price:', error);
+    // console.error('Error formatting price:', error);
   }
 
   // Add this enhanced logging
-  console.log('IP object type:', typeof ip);
-  console.log('IP object keys:', ip ? Object.keys(ip) : 'null/undefined');
-  console.log('Raw price value:', ip?.basePrice || ip?.[7] || ip?.price);
-  console.log('Parsed price:', price);
+  // console.log('IP object type:', typeof ip);
+  // console.log('IP object keys:', ip ? Object.keys(ip) : 'null/undefined');
+  // console.log('Raw price value:', ip?.basePrice || ip?.[7] || ip?.price);
+  // console.log('Parsed price:', price);
 
   // Updated license types detection
   const licenseTypes = Array.isArray(ip.licenseTypes)
@@ -136,13 +138,13 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
       );
 
   // Add debug logging
-  console.log('Raw licenseopt value:', ip.licenseopt || ip[5]);
-  console.log('Determined license types:', licenseTypes);
+  // console.log('Raw licenseopt value:', ip.licenseopt || ip[5]);
+  // console.log('Determined license types:', licenseTypes);
 
-  console.log(
-    'Initial license type:',
-    licenseTypes.includes('buy') ? 'buy' : 'rent'
-  );
+  // console.log(
+  //   'Initial license type:',
+  //   licenseTypes.includes('buy') ? 'buy' : 'rent'
+  // );
 
   // Get image URL safely
   const imageUrl = ip.thumbnail || ip.fileUri || ip[5] || '/placeholder.svg';
@@ -176,14 +178,15 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
       if (licenseType === 'buy') {
         try {
           // Make sure we're sending the correct price format
-          console.log(`Buying IP #${id} with ${price} ETH`);
-
+          // console.log(`Buying IP #${id} with ${price} ETH`);
           // Let's handle both cases: either the price is already in BigInt format or needs conversion
-          await handleBuyIP(ethers.parseEther(price.toString()).toString());
+          await testData(ip);
+          // await handleBuyIP(ip.id);
         } catch (priceError) {
-          console.error('Error formatting price:', priceError);
+          // console.error('Error formatting price:', priceError);
           // If parseEther fails (perhaps price is already in wei), try using the original price
-          await handleBuyIP(price.toString());
+          // await handleBuyIP(id);
+          await testData(ip);
         }
       } else if (licenseType === 'rent') {
         const rentTotal = calculatePrice().toString();
@@ -197,14 +200,14 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
         setTxStatus('idle');
       }, 2000);
     } catch (error: any) {
-      console.error('Transaction failed:', error);
+      // console.error('Transaction failed:', error);
 
       // Enhanced error reporting
       if (error.code === 'CALL_EXCEPTION') {
-        console.error('Contract execution reverted. This could be due to:');
-        console.error('- Insufficient funds for gas + value');
-        console.error('- IP already purchased by someone else');
-        console.error('- Not meeting contract requirements');
+        // console.error('Contract execution reverted. This could be due to:');
+        // console.error('- Insufficient funds for gas + value');
+        // console.error('- IP already purchased by someone else');
+        // console.error('- Not meeting contract requirements');
       }
 
       // Show specific error message if available
@@ -261,7 +264,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
             <div className="relative">
               <div className="w-full h-48 relative">
                 <Image
-                  src={imageUrl}
+                  src={"/placeholder.svg"}
                   alt={title}
                   fill
                   className="object-cover"

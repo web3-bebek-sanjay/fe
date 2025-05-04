@@ -11,10 +11,9 @@ import {
   LICENSE_TYPE_MAPPING,
   LicenseMode,
   CommercialType,
-  CategoryEnum,
   getCategoryValue,
-  getCategoryName,
 } from '@/utils/enums';
+import { ethers } from 'ethers';
 
 export interface IPFormData {
   title: string;
@@ -38,8 +37,8 @@ export const IPRegistration: React.FC = () => {
     setDescription: setWalletDescription,
     setCategory: setWalletCategory,
     setTag: setWalletTag,
-    setFileUpload: setWalletFile, // Changed from setFile to setFileUpload
-    setLicenseopt: setWalletLicenseType, // Changed from setLicenseType to setLicenseopt
+    setFileUpload: setWalletFile, 
+    setLicenseopt: setWalletLicenseType,
     setBasePrice: setWalletBasePrice,
     setRentPrice: setWalletRentPrice,
     setRoyaltyPercentage: setWalletRoyaltyPercentage,
@@ -141,9 +140,33 @@ export const IPRegistration: React.FC = () => {
       // Convert category to uint
       const categoryValue = getCategoryValue(formData.category);
 
-      // Convert numeric values to strings and ensure they're in wei format
-      const basePriceInWei = (formData.basePrice * 10 ** 18).toString();
-      const rentPriceInWei = (formData.rentPrice * 10 ** 18).toString();
+      // Add validation for price values to avoid parsing errors
+      const basePrice = Number(formData.basePrice);
+      const rentPrice = Number(formData.rentPrice);
+
+      // Ensure prices are valid numbers and not too small
+      if (isNaN(basePrice) || basePrice < 0) {
+        throw new Error('Base price must be a valid positive number');
+      }
+      if (isNaN(rentPrice) || rentPrice < 0) {
+        throw new Error('Rent price must be a valid positive number');
+      }
+
+      // Use format strings to ensure valid input to parseEther
+      const basePriceInWei =
+        basePrice > 0
+          ? ethers
+              .parseEther(basePrice.toFixed(18).replace(/\.?0+$/, ''))
+              .toString()
+          : '0';
+
+      const rentPriceInWei =
+        rentPrice > 0
+          ? ethers
+              .parseEther(rentPrice.toFixed(18).replace(/\.?0+$/, ''))
+              .toString()
+          : '0';
+
       const royaltyPercentage = Math.floor(
         formData.royaltyPercentage
       ).toString();
@@ -157,7 +180,7 @@ export const IPRegistration: React.FC = () => {
         description: formData.description,
         category: categoryValue.toString(), // Convert the enum value to string for the contract
         tag: '',
-        fileUpload: filePlaceholder, 
+        fileUpload: filePlaceholder,
         licenseopt: licenseTypeValue, // Changed from licenseType to licenseopt
         basePrice: basePriceInWei,
         rentPrice: rentPriceInWei,

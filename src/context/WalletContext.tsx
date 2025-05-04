@@ -79,11 +79,12 @@ type WalletContextType = {
     royaltyPercentage: string;
   }) => Promise<void>;
   handleRemixIP: () => Promise<void>;
-  handleBuyIP: (price?: string) => Promise<void>;
+  handleBuyIP: (tokenId?: number) => Promise<void>;
   handleRentIP: (price?: string, duration?: number) => Promise<void>;
   handleGetIP: () => Promise<void>;
   handleGetMyIPs: () => Promise<void>;
   handleGetOtherIPs: () => Promise<void>;
+  testData: (ip: any) => Promise<void>;
 };
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -286,50 +287,74 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const handleBuyIP = async (priceParam?: string) => {
-    if (!tokenId) return;
+  const handleBuyIP = async (tokenId?: number) => {
+    if (!account) return;
 
     await headerGetterContract(async (contract: Contract) => {
       try {
         // First get the IP details to know the price
-        const ip = await contract.getIP(BigInt(tokenId));
 
-        // Determine which price to use
-        let finalPrice;
-
-        if (priceParam) {
-          // If a custom price was provided as a human-readable number (like "0.05")
-          finalPrice = ethers.parseEther(priceParam);
-        } else {
-          // Use the contract's price directly - it's already in wei format as BigInt
-          finalPrice = ip.basePrice;
+        if (balance < basePrice) {
+          alert("Saldo tidak cukup untuk membeli NFT ini");
+          return;
         }
 
-        // Correctly format the price for display
-        const ethAmount = ethers.formatEther(finalPrice);
-        console.log(`Buying IP #${tokenId} for ${ethAmount} ETH`);
+        const tx = await contract.buyIP(tokenId, { value: basePrice });
+        const receipt = await tx.wait();
+        console.log("Transaction confirmed:", receipt);
+        alert("IP purchased successfully!");
 
-        // Pass just the tokenId parameter, and include the price as value
-        const tx = await contract.buyIP(BigInt(tokenId), {
-          ...txConfig,
-          value: finalPrice,
-          gasLimit: 3000000,
-        });
-
-        await tx.wait();
-        alert('IP purchased successfully!');
-
-        // Refresh IP listings after purchase
-        handleGetMyIPs();
         handleGetOtherIPs();
       } catch (error) {
         console.error('Error buying IP:', error);
-        alert(
-          'Error purchasing IP: ' + (error.reason || error.message || error)
-        );
       }
     });
   };
+
+  const testData = async (ip: any) => {
+  if (!account) return;
+
+  await headerGetterContract(async (contract: Contract) => {
+    try {
+      const lastToken = await contract.nextTokenId();
+      console.log('Last token ID:', lastToken);
+
+      let tokenTarget: bigint | undefined;
+
+      // Cari token milik owner yang cocok dengan detail IP
+      for (let i = 0; i < lastToken; i++) {
+        const tokenId = await contract.ownerToTokenIds(ip.owner, i);
+        const ipDetails = await contract.getIP(tokenId);
+
+        if (
+          ipDetails.title === ip.title &&
+          ipDetails.category === ip.category &&
+          ipDetails.owner.toLowerCase() === ip.owner.toLowerCase()
+        ) {
+          tokenTarget = BigInt(tokenId);
+          break;
+        }
+      }
+
+      // Pastikan saldo cukup
+      const balance = await contract.balanceOf(account);
+      if (balance < ip.basePrice) {
+        alert(`Saldo tidak cukup: saldo=${balance} < harga=${ip.basePrice}`);
+        console.log(ethers.parseEther(ip.basePrice))
+        return;
+      }
+
+      // Kirim transaksi pembelian
+      const tx = await contract.buyIP(tokenTarget, { value: ethers.parseEther(ip.basePrice) });
+      const receipt = await tx.wait();
+      console.log("Transaction confirmed:", receipt);
+      alert("IP purchased successfully!");
+
+    } catch (error) {
+      console.error('Error buying IP:', error);
+    }
+  });
+};
 
   const handleRentIP = async (priceParam?: string, durationParam?: number) => {
     if (!tokenId) return;
@@ -427,7 +452,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             "No other IPs found - this may be expected if you're the only user"
           );
         } else {
-          alert('Other IPs fetched successfully');
+          // alert('Other IPs fetched successfully');
         }
       } catch (error) {
         console.error('Error in handleGetOtherIPs:', error);
@@ -489,6 +514,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         handleGetIP,
         handleGetMyIPs,
         handleGetOtherIPs,
+        testData
       }}
     >
       {children}
