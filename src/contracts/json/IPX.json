@@ -2,13 +2,7 @@
   "abi": [
     {
       "type": "constructor",
-      "inputs": [
-        {
-          "name": "_royaltyTokenFactory",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
+      "inputs": [],
       "stateMutability": "nonpayable"
     },
     {
@@ -54,6 +48,103 @@
       "inputs": [
         {
           "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "payable"
+    },
+    {
+      "type": "function",
+      "name": "buyIPs",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "category",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "fileUpload",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "licenseopt",
+          "type": "uint8",
+          "internalType": "uint8"
+        },
+        {
+          "name": "basePrice",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "rentPrice",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "royaltyPercentage",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "claimRoyalty",
+      "inputs": [
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "cleanAllExpiredRents",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "depositRoyalty",
+      "inputs": [
+        {
+          "name": "remixTokenId",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -115,11 +206,6 @@
               "name": "category",
               "type": "uint256",
               "internalType": "uint256"
-            },
-            {
-              "name": "tag",
-              "type": "string",
-              "internalType": "string"
             },
             {
               "name": "fileUpload",
@@ -188,11 +274,6 @@
               "internalType": "uint256"
             },
             {
-              "name": "tag",
-              "type": "string",
-              "internalType": "string"
-            },
-            {
               "name": "fileUpload",
               "type": "string",
               "internalType": "string"
@@ -259,9 +340,130 @@
               "internalType": "uint256"
             },
             {
-              "name": "tag",
+              "name": "fileUpload",
               "type": "string",
               "internalType": "string"
+            },
+            {
+              "name": "licenseopt",
+              "type": "uint8",
+              "internalType": "uint8"
+            },
+            {
+              "name": "basePrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "rentPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "royaltyPercentage",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getIPsNotOwnedByRemix",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple[]",
+          "internalType": "struct IPX.IP[]",
+          "components": [
+            {
+              "name": "owner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "category",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "fileUpload",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "licenseopt",
+              "type": "uint8",
+              "internalType": "uint8"
+            },
+            {
+              "name": "basePrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "rentPrice",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "royaltyPercentage",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getListBuy",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple[]",
+          "internalType": "struct IPX.IP[]",
+          "components": [
+            {
+              "name": "owner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "category",
+              "type": "uint256",
+              "internalType": "uint256"
             },
             {
               "name": "fileUpload",
@@ -307,22 +509,86 @@
         {
           "name": "",
           "type": "tuple[]",
-          "internalType": "struct IPX.Rent[]",
+          "internalType": "struct IPX.RentedIP[]",
           "components": [
             {
-              "name": "renter",
-              "type": "address",
-              "internalType": "address"
+              "name": "ip",
+              "type": "tuple",
+              "internalType": "struct IPX.IP",
+              "components": [
+                {
+                  "name": "owner",
+                  "type": "address",
+                  "internalType": "address"
+                },
+                {
+                  "name": "title",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "description",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "category",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "fileUpload",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "licenseopt",
+                  "type": "uint8",
+                  "internalType": "uint8"
+                },
+                {
+                  "name": "basePrice",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "rentPrice",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "royaltyPercentage",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                }
+              ]
             },
             {
-              "name": "expiresAt",
-              "type": "uint256",
-              "internalType": "uint256"
+              "name": "rent",
+              "type": "tuple",
+              "internalType": "struct IPX.Rent",
+              "components": [
+                {
+                  "name": "renter",
+                  "type": "address",
+                  "internalType": "address"
+                },
+                {
+                  "name": "expiresAt",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "isValid",
+                  "type": "bool",
+                  "internalType": "bool"
+                }
+              ]
             }
           ]
         }
       ],
-      "stateMutability": "view"
+      "stateMutability": "nonpayable"
     },
     {
       "type": "function",
@@ -331,8 +597,67 @@
       "outputs": [
         {
           "name": "",
-          "type": "address[]",
-          "internalType": "address[]"
+          "type": "tuple[]",
+          "internalType": "struct IPX.RentInfo[]",
+          "components": [
+            {
+              "name": "ip",
+              "type": "tuple[]",
+              "internalType": "struct IPX.IP[]",
+              "components": [
+                {
+                  "name": "owner",
+                  "type": "address",
+                  "internalType": "address"
+                },
+                {
+                  "name": "title",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "description",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "category",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "fileUpload",
+                  "type": "string",
+                  "internalType": "string"
+                },
+                {
+                  "name": "licenseopt",
+                  "type": "uint8",
+                  "internalType": "uint8"
+                },
+                {
+                  "name": "basePrice",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "rentPrice",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "royaltyPercentage",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                }
+              ]
+            },
+            {
+              "name": "renterId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
         }
       ],
       "stateMutability": "view"
@@ -377,11 +702,6 @@
                   "name": "category",
                   "type": "uint256",
                   "internalType": "uint256"
-                },
-                {
-                  "name": "tag",
-                  "type": "string",
-                  "internalType": "string"
                 },
                 {
                   "name": "fileUpload",
@@ -462,11 +782,6 @@
                   "internalType": "uint256"
                 },
                 {
-                  "name": "tag",
-                  "type": "string",
-                  "internalType": "string"
-                },
-                {
                   "name": "fileUpload",
                   "type": "string",
                   "internalType": "string"
@@ -499,6 +814,30 @@
               "internalType": "uint256"
             }
           ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getRoyalty",
+      "inputs": [
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "pending",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "claimed",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -538,11 +877,6 @@
               "name": "category",
               "type": "uint256",
               "internalType": "uint256"
-            },
-            {
-              "name": "tag",
-              "type": "string",
-              "internalType": "string"
             },
             {
               "name": "fileUpload",
@@ -628,11 +962,6 @@
           "name": "category",
           "type": "uint256",
           "internalType": "uint256"
-        },
-        {
-          "name": "tag",
-          "type": "string",
-          "internalType": "string"
         },
         {
           "name": "fileUpload",
@@ -807,11 +1136,6 @@
           "internalType": "uint256"
         },
         {
-          "name": "_tag",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
           "name": "_fileUpload",
           "type": "string",
           "internalType": "string"
@@ -866,19 +1190,9 @@
           "internalType": "uint256"
         },
         {
-          "name": "_tag",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
           "name": "_fileUpload",
           "type": "string",
           "internalType": "string"
-        },
-        {
-          "name": "_royaltyPercentage",
-          "type": "uint256",
-          "internalType": "uint256"
         },
         {
           "name": "parentId",
@@ -951,23 +1265,15 @@
           "name": "tokenId",
           "type": "uint256",
           "internalType": "uint256"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "payable"
-    },
-    {
-      "type": "function",
-      "name": "rentId",
-      "inputs": [],
-      "outputs": [
+        },
         {
-          "name": "",
+          "name": "finalprice",
           "type": "uint256",
           "internalType": "uint256"
         }
       ],
-      "stateMutability": "view"
+      "outputs": [],
+      "stateMutability": "payable"
     },
     {
       "type": "function",
@@ -992,6 +1298,75 @@
         },
         {
           "name": "expiresAt",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "isValid",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "renterIPs",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "category",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "fileUpload",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "licenseopt",
+          "type": "uint8",
+          "internalType": "uint8"
+        },
+        {
+          "name": "basePrice",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "rentPrice",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "royaltyPercentage",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -1024,20 +1399,7 @@
     },
     {
       "type": "function",
-      "name": "royaltyTokenFactory",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "address",
-          "internalType": "contract RoyaltyTokenFactory"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "royaltyTokens",
+      "name": "royalties",
       "inputs": [
         {
           "name": "",
@@ -1047,9 +1409,14 @@
       ],
       "outputs": [
         {
-          "name": "",
-          "type": "address",
-          "internalType": "address"
+          "name": "pendingRoyalty",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "claimedRoyalty",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"

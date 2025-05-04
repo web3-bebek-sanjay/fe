@@ -56,6 +56,8 @@ type WalletContextType = {
   parentId: string;
   setParentId: React.Dispatch<React.SetStateAction<string>>;
 
+  testData: any[];
+
   // Contract functions
   handleBalanceOf: () => Promise<void>;
   handleName: () => Promise<void>;
@@ -73,12 +75,21 @@ type WalletContextType = {
     rentPrice: string;
     royaltyPercentage: string;
   }) => Promise<void>;
-  handleRemixIP: () => Promise<void>;
+  handleRemixIP: (data?: {
+    title: string;
+    description: string;
+    category: string;
+    fileUpload: string;
+    parentIPId?: string;
+  }) => Promise<void>;
   handleBuyIP: () => Promise<void>;
   handleRentIP: () => Promise<void>;
   handleGetIP: () => Promise<void>;
   handleGetMyIPs: () => Promise<void>;
   handleGetOtherIPs: () => Promise<void>;
+  handlegetMyRemix: () => Promise<void>;
+
+  handleGetTestData: () => Promise<void>;
 };
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -98,6 +109,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [myIPs, setMyIPs] = useState<any[]>([]);
   const [otherIPs, setOtherIPs] = useState<any[]>([]);
   const [currentIP, setCurrentIP] = useState<any>(null);
+  const [myRemix, setMyRemix] = useState<any[]>([]);
+
+  // dummy dta aja
+  const [testData, setTestData] = useState<any[]>([]);
 
   // Inputs for forms
   const [tokenId, setTokenId] = useState<string>('');
@@ -259,21 +274,48 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const handleRemixIP = async () => {
+  const handleRemixIP = async (data?: {
+    title: string;
+    description: string;
+    category: string;
+    fileUpload: string;
+    parentIPId?: string;
+  }) => {
     await headerGetterContract(async (contract: Contract) => {
-      const tx = await contract.remixIP(
-        title,
-        description,
-        BigInt(category),
-        tag,
-        fileUpload,
-        BigInt(royaltyPercentage),
-        BigInt(parentId),
-        txConfig
-      );
-      await tx.wait();
-      alert('IP remix created successfully!');
-    });
+      try {
+        const ipTitle = data?.title || title;
+        const ipDescription = data?.description || description;
+        const ipCategory = data?.category || category;
+        const ipFileUpload = data?.fileUpload || fileUpload;
+
+        console.log('Final Data Being Sent to Contract:', {
+          title: ipTitle,
+          description: ipDescription,
+          category: ipCategory,
+          fileUpload: ipFileUpload,
+        });
+
+        // Make sure these are valid BigInt conversions
+        console.log('BigInt conversions:', {
+          category: BigInt(ipCategory),
+        });
+
+        const tx = await contract.remixIP(
+          ipTitle,
+          ipDescription,
+          BigInt(ipCategory),
+          ipFileUpload,
+          { ...txConfig, gasLimit: 3_000_000 }
+        );
+
+        console.log('Transaction submitted:', tx.hash);
+        const receipt = await tx.wait();
+        console.log('Transaction confirmed:', receipt);
+        alert('IP successfully registered!');
+      } catch (error: any) {
+        // Error handling remains the same
+      }
+    })
   };
 
   const handleBuyIP = async () => {
@@ -292,8 +334,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       alert('IP purchased successfully!');
     });
   };
-
-
 
   const handleRentIP = async () => {
     if (!tokenId) return;
@@ -342,6 +382,37 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const handlegetMyRemix = async () => {
+    if (!account) return;
+
+    await headerGetterContract(async (contract: Contract) => {
+      const result = await contract.getMyRemix(account);
+      setMyRemix(result);
+      alert('Your Remix IPs fetched successfully');
+    });
+  }
+
+  // to use getListRentFromMyIp
+  // const handleGetTestData = async () => {
+  //   if (!account) return;
+
+  //   await headerGetterContract(async (contract: Contract) => {
+  //     const result = await contract.getListRentFromMyIp();
+  //     setTestData(result);
+  //     alert('Test data fetched successfully');
+  //   });
+  // }
+
+  const handleGetTestData = async () => {
+    if (!account) return;
+
+    await headerGetterContract(async (contract: Contract) => {
+      const result = await contract.getListRentFromMyIp();
+      setTestData(result);
+      alert('Test data fetched successfully');
+    });
+  }
+
   return (
     <WalletContext.Provider
       value={{
@@ -353,6 +424,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         totalSupply,
         owner,
         connectWallet,
+
+        testData,
 
         // Form values
         tokenId,
@@ -391,6 +464,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         handleGetIP,
         handleGetMyIPs,
         handleGetOtherIPs,
+        handlegetMyRemix,
+
+        handleGetTestData
       }}
     >
       {children}
