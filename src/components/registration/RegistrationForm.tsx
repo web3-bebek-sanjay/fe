@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { UploadIcon } from 'lucide-react';
 import { IPFormData, LicenseType } from './IPRegistration';
+import useRegisterIP from '@/hooks/useRegisterIP';
+import { ethers } from 'ethers';
 
 interface RegistrationFormProps {
   formData: IPFormData;
@@ -32,6 +34,8 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     'Gaming',
     'Other',
   ];
+
+  const { error, isLoading, registerIP} = useRegisterIP();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -85,34 +89,54 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   const isRentSelected = selectedLicenseOptions.includes('rent');
   const isRemixSelected = selectedLicenseOptions.includes('remix');
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+  
+    if (!formData.licenseType || !formData.licenseMode) {
+      alert("Please select license type and mode");
+      return;
+    }
+  
+    await registerIP(
+      formData.title,
+      formData.description,
+      1,
+      "hallo",
+      "file",
+      2,
+      formData.basePrice,
+      formData.rentPrice,
+      1
+    ); // Call function with all required arguments
+  };
+  
+
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
       {/* License info banner */}
       <div
-        className={`p-4 rounded-lg mb-6 ${
-          isPersonal && !isCommercial
-            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-            : isRent || isRentBuySelected
+        className={`p-4 rounded-lg mb-6 ${isPersonal && !isCommercial
+          ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+          : isRent || isRentBuySelected
             ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'
             : 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800'
-        }`}
+          }`}
       >
         <p
-          className={`text-sm ${
-            isPersonal && !isCommercial
-              ? 'text-green-800 dark:text-green-300'
-              : isRent || isRentBuySelected
+          className={`text-sm ${isPersonal && !isCommercial
+            ? 'text-green-800 dark:text-green-300'
+            : isRent || isRentBuySelected
               ? 'text-orange-800 dark:text-orange-300'
               : 'text-purple-800 dark:text-purple-300'
-          }`}
+            }`}
         >
           {isPersonal && !isCommercial
             ? 'Personal license grants full rights for personal use with a one-time payment.'
             : isRentBuySelected
-            ? 'Commercial buy license allows unlimited usage with a one-time payment.'
-            : isRent
-            ? 'Commercial rent license allows time-limited commercial usage with a daily rental fee.'
-            : 'Remix license allows modification and derivative works with royalty payments.'}
+              ? 'Commercial buy license allows unlimited usage with a one-time payment.'
+              : isRent
+                ? 'Commercial rent license allows time-limited commercial usage with a daily rental fee.'
+                : 'Remix license allows modification and derivative works with royalty payments.'}
         </p>
       </div>
 
@@ -127,11 +151,10 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               <button
                 type="button"
                 onClick={() => toggleLicenseOption('personal')}
-                className={`px-4 py-2 rounded-lg font-medium border ${
-                  isRentBuySelected
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium border ${isRentBuySelected
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                  }`}
               >
                 Rent Buy
               </button>
@@ -139,11 +162,10 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               <button
                 type="button"
                 onClick={() => toggleLicenseOption('rent')}
-                className={`px-4 py-2 rounded-lg font-medium border ${
-                  isRentSelected
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium border ${isRentSelected
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                  }`}
               >
                 Rent
               </button>
@@ -151,11 +173,10 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               <button
                 type="button"
                 onClick={() => toggleLicenseOption('remix')}
-                className={`px-4 py-2 rounded-lg font-medium border ${
-                  isRemixSelected
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium border ${isRemixSelected
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                  }`}
               >
                 Remix
               </button>
@@ -305,27 +326,27 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
             {/* Base Price - show for personal license or rent buy */}
             {(selectedLicenseOptions.includes('personal') ||
               isRentBuySelected) && (
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Base Price (ETH)
-                  <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">
-                    (one-time payment)
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  min="0.001"
-                  step="0.001"
-                  value={formData.basePrice}
-                  onChange={(e) =>
-                    onChange({
-                      basePrice: Number.parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
-                />
-              </div>
-            )}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Base Price (ETH)
+                    <span className="text-slate-500 dark:text-slate-400 ml-1 text-xs">
+                      (one-time payment)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    value={formData.basePrice}
+                    onChange={(e) =>
+                      onChange({
+                        basePrice: Number.parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+                  />
+                </div>
+              )}
 
             {/* Rent Price - show when rent is selected or for rent buy */}
             {(isRentSelected || isRentBuySelected) && (
