@@ -5,35 +5,21 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XIcon, CheckIcon, AlertCircleIcon, LoaderIcon } from 'lucide-react';
 import { useWallet } from '@/context/WalletContext';
+import { useAccount } from 'wagmi';
 import Image from 'next/image';
+import { IPStruct } from "@/lib/app_interface"
 
 interface LicenseModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  ip: {
-    id: string;
-    title: string;
-    owner: string;
-    thumbnail: string;
-    licenseTypes: string[];
-    category: string;
-    price: number;
-  };
+  isOpen: boolean
+  onClose: () => void
+  ip: IPStruct
 }
 
-export const LicenseModal: React.FC<LicenseModalProps> = ({
-  isOpen,
-  onClose,
-  ip,
-}) => {
-  const { isConnected } = useWallet();
-  const [licenseType, setLicenseType] = useState<'buy' | 'rent'>(
-    ip.licenseTypes.includes('buy') ? 'buy' : 'rent'
-  );
-  const [duration, setDuration] = useState(30);
-  const [txStatus, setTxStatus] = useState<
-    'idle' | 'pending' | 'success' | 'error'
-  >('idle');
+export const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose, ip }) => {
+  const { isConnected } = useAccount()
+  const [licenseType, setLicenseType] = useState<"buy" | "rent">(ip.licenseopt == 0 ? "buy" : "rent")
+  const [duration, setDuration] = useState(30)
+  const [txStatus, setTxStatus] = useState<"idle" | "pending" | "success" | "error">("idle")
 
   const handleConfirmLicense = async () => {
     if (!isConnected) return;
@@ -54,9 +40,12 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   };
 
   const calculatePrice = () => {
-    if (licenseType === 'buy') return ip.price;
-    return Math.round(((ip.price * duration) / 30) * 1000) / 1000; // Rent price based on duration
-  };
+    if (licenseType === "buy") return ip.basePrice
+    // return Math.round(((ip.basePrice * duration) / 30) * 1000) / 1000 // Rent price based on duration
+    const rentPrice = Math.round(((Number(ip.basePrice) * duration) / 30) * 1000) / 1000
+    return rentPrice
+
+  }
 
   return (
     <AnimatePresence>
@@ -82,12 +71,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
           >
             <div className="relative">
               <div className="w-full h-48 relative">
-                <Image
-                  src={ip.thumbnail || '/placeholder.svg'}
-                  alt={ip.title}
-                  fill
-                  className="object-cover"
-                />
+                <Image src={"/placeholder.svg"} alt={ip.title} fill className="object-cover" />
               </div>
               <button
                 onClick={onClose}
@@ -109,7 +93,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                       License Type
                     </label>
                     <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                      {ip.licenseTypes.includes('buy') && (
+                      {ip.licenseopt === 0 && (
                         <button
                           className={`flex-1 py-2 text-center text-sm font-medium ${
                             licenseType === 'buy'
@@ -121,7 +105,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                           Buy
                         </button>
                       )}
-                      {ip.licenseTypes.includes('rent') && (
+                      {ip.licenseopt == 1 && (
                         <button
                           className={`flex-1 py-2 text-center text-sm font-medium ${
                             licenseType === 'rent'

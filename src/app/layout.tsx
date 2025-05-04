@@ -18,7 +18,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-qb-installed="true" >
       <body className={inter.className}>
         <LoadingProvider>
           <WalletProvider>{children}</WalletProvider>
