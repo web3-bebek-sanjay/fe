@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useWallet } from '@/context/WalletContext';
 import { Button } from '../ui/button';
 import { TabsGroup } from '../ui/TabsGroup';
 import { motion } from 'framer-motion';
@@ -15,7 +15,7 @@ import { RefreshCw } from 'lucide-react';
 import { Remix, Deposit } from './types';
 
 export const RemixManagement: React.FC = () => {
-  const { isConnected } = useAccount();
+  const { isConnected } = useWallet();
   const [remixes, setRemixes] = useState(mockRemixes);
   const [activeTab, setActiveTab] = useState('remixes');
   const [selectedRemix, setSelectedRemix] = useState<Remix | null>(null);
@@ -74,7 +74,7 @@ export const RemixManagement: React.FC = () => {
 
   if (!isConnected) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -83,8 +83,8 @@ export const RemixManagement: React.FC = () => {
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center max-w-md">
           <h2 className="text-2xl font-bold mb-4">Remix Management</h2>
           <p className="text-slate-600 dark:text-slate-400 mb-6">
-            Connect your wallet to view and manage your remix from
-            your IP assets.
+            Connect your wallet to view and manage your remix from your IP
+            assets.
           </p>
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-lg p-4">
             <p className="text-sm text-blue-700 dark:text-blue-400">
@@ -97,7 +97,7 @@ export const RemixManagement: React.FC = () => {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
@@ -107,22 +107,23 @@ export const RemixManagement: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold mb-1">Remix Management</h1>
           <p className="text-slate-600 dark:text-slate-400">
-            Manage your registered remixes and handle royalty payments to original creators
+            Manage your registered remixes and handle royalty payments to
+            original creators
           </p>
         </div>
-        
-        <FilterHeader 
-          timeRange={timeRange} 
-          setTimeRange={setTimeRange} 
-          filterOpen={filterOpen} 
-          setFilterOpen={setFilterOpen} 
+
+        <FilterHeader
+          timeRange={timeRange}
+          setTimeRange={setTimeRange}
+          filterOpen={filterOpen}
+          setFilterOpen={setFilterOpen}
         />
       </div>
 
-      <StatsOverview 
-        totalRemixes={totalRemixes} 
-        totalSales={totalSales} 
-        totalRoyalties={totalRoyalties} 
+      <StatsOverview
+        totalRemixes={totalRemixes}
+        totalSales={totalSales}
+        totalRoyalties={totalRoyalties}
       />
 
       <motion.div
@@ -141,10 +142,7 @@ export const RemixManagement: React.FC = () => {
       </motion.div>
 
       {activeTab === 'remixes' ? (
-        <RemixList 
-          remixes={remixes} 
-          onDepositClick={handleDepositClick} 
-        />
+        <RemixList remixes={remixes} onDepositClick={handleDepositClick} />
       ) : (
         <DepositsList remixes={remixes} />
       )}

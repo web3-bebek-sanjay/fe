@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { RemixRegistrationForm } from '../registration/RemixRegistrationForm';
 import { IPPreview } from '../registration/IPPreview';
 import { TransactionStatus } from '../ui/TransactionStatus';
-import { useAccount } from 'wagmi';
+import { useWallet } from '@/context/WalletContext';
 
 export type LicenseMode = 'commercial';
 export type LicenseType = 'remix';
@@ -26,7 +26,7 @@ export interface IPFormData {
 }
 
 export const RemixRegistration: React.FC = () => {
-  const { isConnected } = useAccount();
+  const { isConnected } = useWallet();
   const [formData, setFormData] = useState<IPFormData>({
     title: '',
     description: '',
