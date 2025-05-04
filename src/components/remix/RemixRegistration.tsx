@@ -14,19 +14,18 @@ export interface IPFormData {
   title: string;
   description: string;
   category: string;
-  licenseType: LicenseType;
-  licenseMode: LicenseMode;
-  commercialType?: CommercialType;
-  basePrice: number;
-  rentPrice: number;
-  royaltyPercentage: number;
+  licenseType: 'remix';
+  licenseMode: 'commercial';
+  basePrice: number; // Not used for remix but kept for consistency
+  rentPrice: number; // Not used for remix but kept for consistency
+  royaltyPercentage: number; // Not used for remix but kept for consistency
   file: File | null;
-  filePreview: string;
-  parentIPId?: string;
+  filePreview: string; // Used as the file upload path
+  parentIPId?: string; // Required for remix
 }
 
 export const RemixRegistration: React.FC = () => {
-  const { isConnected } = useWallet();
+  const { isConnected, handleRemixIP } = useWallet();
   const [formData, setFormData] = useState<IPFormData>({
     title: '',
     description: '',
@@ -44,33 +43,53 @@ export const RemixRegistration: React.FC = () => {
   >('idle');
 
   const handleSubmit = async () => {
-    if (!isConnected) return;
-    setTxStatus('pending');
-    // Simulate transaction
-    setTimeout(() => {
-      // 90% chance of success
-      const success = Math.random() > 0.1;
-      setTxStatus(success ? 'success' : 'error');
+    if (!isConnected) {
+      alert('Please connect your wallet before submitting.');
+      return;
+    }
+
+    if (!formData.title || !formData.description || !formData.category || !formData.file || !formData.parentIPId) {
+      alert('Please fill out all required fields.');
+      return;
+    }
+
+    try {
+      setTxStatus('pending');
+
+      // Prepare data for handleRemixIP
+      const remixData = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        fileUpload: formData.filePreview, // Use the file preview as the upload path
+        parentIPId: formData.parentIPId,
+      };
+
+      await handleRemixIP(remixData); // Call the WalletContext function
+
+      setTxStatus('success');
+
       // Reset form after success
-      if (success) {
-        setTimeout(() => {
-          setFormData({
-            title: '',
-            description: '',
-            category: '',
-            licenseType: 'remix',
-            licenseMode: 'commercial',
-            basePrice: 0.05,
-            rentPrice: 0.01,
-            royaltyPercentage: 10,
-            file: null,
-            filePreview: '',
-            parentIPId: undefined,
-          });
-          setTxStatus('idle');
-        }, 3000);
-      }
-    }, 3000);
+      setTimeout(() => {
+        setFormData({
+          title: '',
+          description: '',
+          category: '',
+          licenseType: 'remix',
+          licenseMode: 'commercial',
+          basePrice: 0.05,
+          rentPrice: 0.01,
+          royaltyPercentage: 10,
+          file: null,
+          filePreview: '',
+          parentIPId: undefined,
+        });
+        setTxStatus('idle');
+      }, 3000);
+    } catch (error) {
+      console.error('Error registering remix:', error);
+      setTxStatus('error');
+    }
   };
 
   return (

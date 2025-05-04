@@ -2,7 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { UploadIcon, SearchIcon, XIcon } from 'lucide-react';
-import { IPFormData } from '../remix/RemixRegistration';
+
+export interface IPFormData {
+  title?: string;
+  description?: string;
+  category?: string;
+  file?: File | null;
+  filePreview?: string;
+  parentIPId?: string;
+  licenseType?: string;
+  licenseMode?: string;
+  commercialType?: string; // Added this property
+}
 
 interface RemixRegistrationFormProps {
   formData: IPFormData;

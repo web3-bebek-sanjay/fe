@@ -287,15 +287,17 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         const ipDescription = data?.description || description;
         const ipCategory = data?.category || category;
         const ipFileUpload = data?.fileUpload || fileUpload;
+        const ipParentIPId = data?.parentIPId || parentId;
 
         console.log('Final Data Being Sent to Contract:', {
           title: ipTitle,
           description: ipDescription,
           category: ipCategory,
           fileUpload: ipFileUpload,
+          parentIPId: ipParentIPId,
         });
 
-        // Make sure these are valid BigInt conversions
+        // Ensure valid BigInt conversions
         console.log('BigInt conversions:', {
           category: BigInt(ipCategory),
         });
@@ -305,17 +307,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           ipDescription,
           BigInt(ipCategory),
           ipFileUpload,
+          ipParentIPId ? BigInt(ipParentIPId) : undefined,
           { ...txConfig, gasLimit: 3_000_000 }
         );
 
         console.log('Transaction submitted:', tx.hash);
         const receipt = await tx.wait();
         console.log('Transaction confirmed:', receipt);
-        alert('IP successfully registered!');
+        alert('Remix successfully registered!');
       } catch (error: any) {
-        // Error handling remains the same
+        console.error('Error in handleRemixIP:', error);
+        alert('Failed to register remix. Please try again.');
       }
-    })
+    });
   };
 
   const handleBuyIP = async () => {
