@@ -6,6 +6,25 @@ export const txConfig = {
   gasLimit: 3_000_000,
 };
 
+const pharosDevnet = {
+  id: 50002,
+  name: "PharosDevnet",
+  nativeCurrency: {
+    decimals: 18,
+    name: "Ether",
+    symbol: "ETH",
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://devnet.dplabs-internal.com"],
+      webSocket: ["wss://devnet.dplabs-internal.com"],
+    },
+  },
+  blockExplorers: {
+    default: { name: "Explorer", url: "https://pharosscan.xyz/" },
+  },
+};
+
 export const getTheBrowserEth = async (): Promise<
   BrowserProvider | undefined
 > => {
@@ -14,7 +33,10 @@ export const getTheBrowserEth = async (): Promise<
     return;
   }
 
-  const provider = new BrowserProvider(window.ethereum);
+  const provider = new BrowserProvider(window.ethereum, {
+    chainId: pharosDevnet.id,
+    name: pharosDevnet.name,
+  });
 
   return provider;
 };

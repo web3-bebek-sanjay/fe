@@ -312,49 +312,53 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const testData = async (ip: any) => {
-  if (!account) return;
-
-  await headerGetterContract(async (contract: Contract) => {
-    try {
-      const lastToken = await contract.nextTokenId();
-      console.log('Last token ID:', lastToken);
-
-      let tokenTarget: bigint | undefined;
-
-      // Cari token milik owner yang cocok dengan detail IP
-      for (let i = 0; i < lastToken; i++) {
-        const tokenId = await contract.ownerToTokenIds(ip.owner, i);
-        const ipDetails = await contract.getIP(tokenId);
-
-        if (
-          ipDetails.title === ip.title &&
-          ipDetails.category === ip.category &&
-          ipDetails.owner.toLowerCase() === ip.owner.toLowerCase()
-        ) {
-          tokenTarget = BigInt(tokenId);
-          break;
-        }
-      }
-
-      // Pastikan saldo cukup
-      const balance = await contract.balanceOf(account);
-      if (balance < ip.basePrice) {
-        alert(`Saldo tidak cukup: saldo=${balance} < harga=${ip.basePrice}`);
-        console.log(ethers.parseEther(ip.basePrice))
-        return;
-      }
-
-      // Kirim transaksi pembelian
-      const tx = await contract.buyIP(tokenTarget, { value: ethers.parseEther(ip.basePrice) });
-      const receipt = await tx.wait();
-      console.log("Transaction confirmed:", receipt);
-      alert("IP purchased successfully!");
-
-    } catch (error) {
-      console.error('Error buying IP:', error);
+    if (!account) {
+      alert("Wallet not connected.");
+      return;
     }
-  });
-};
+
+    await headerGetterContract(async (contract: Contract) => {
+      try {
+        const lastToken = await contract.nextTokenId();
+        let tokenTarget: bigint | null = null;
+
+        for (let i = 0; i < lastToken; i++) {
+          const tokenId = await contract.ownerToTokenIds(ip.owner, i);
+          const ipDetails = await contract.getIP(tokenId);
+
+          if (
+            ipDetails.title === ip.title &&
+            ipDetails.category === ip.category &&
+            ipDetails.owner.toLowerCase() === ip.owner.toLowerCase()
+          ) {
+            tokenTarget = tokenId;
+            break;
+          }
+        }
+
+        if (tokenTarget === null) {
+          alert("Token not found for the given IP.");
+          return;
+        }
+
+        const basePrice = BigInt(ip.basePrice); // pastikan sudah dalam bentuk BigInt
+
+        // Kirim transaksi beli IP
+        const tx = await contract.buyIP(tokenTarget, {
+          value: basePrice,
+        });
+
+        const receipt = await tx.wait();
+        console.log("Transaction successful:", receipt);
+        alert("Successfully purchased IP!");
+
+      } catch (error) {
+        console.error("Failed to buy IP:", error);
+        alert("Purchase failed. Check console for details.");
+      }
+    });
+  };
+
 
   const handleRentIP = async (priceParam?: string, durationParam?: number) => {
     if (!tokenId) return;
