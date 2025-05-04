@@ -140,7 +140,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error('Error connecting wallet:', error);
-      alert('Error connecting wallet: ' + (error.message || error));
     }
   };
 
@@ -295,21 +294,39 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         // First get the IP details to know the price
         const ip = await contract.getIP(BigInt(tokenId));
 
-        // Use the price parameter if provided, otherwise use the IP's basePrice
-        const price = priceParam ? ethers.parseEther(priceParam) : ip.basePrice;
+        // Determine which price to use
+        let finalPrice;
 
+        if (priceParam) {
+          // If a custom price was provided as a human-readable number (like "0.05")
+          finalPrice = ethers.parseEther(priceParam);
+        } else {
+          // Use the contract's price directly - it's already in wei format as BigInt
+          finalPrice = ip.basePrice;
+        }
+
+        // Correctly format the price for display
+        const ethAmount = ethers.formatEther(finalPrice);
+        console.log(`Buying IP #${tokenId} for ${ethAmount} ETH`);
+
+        // Pass just the tokenId parameter, and include the price as value
         const tx = await contract.buyIP(BigInt(tokenId), {
           ...txConfig,
-          value: price,
-          gasLimit: 3000000, // Adding explicit gas limit for consistency
+          value: finalPrice,
+          gasLimit: 3000000,
         });
+
         await tx.wait();
         alert('IP purchased successfully!');
+
+        // Refresh IP listings after purchase
+        handleGetMyIPs();
+        handleGetOtherIPs();
       } catch (error) {
         console.error('Error buying IP:', error);
-        // More detailed error logging
-        if (error.reason) console.error('Error reason:', error.reason);
-        throw error;
+        alert(
+          'Error purchasing IP: ' + (error.reason || error.message || error)
+        );
       }
     });
   };
@@ -360,7 +377,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         alert('IP rented successfully!');
       } catch (error) {
         console.error('Error renting IP:', error);
-        if (error.reason) console.error('Error reason:', error.reason);
         throw error;
       }
     });

@@ -12,9 +12,9 @@ import { ethers } from 'ethers';
 const getLicenseTypes = (licenseType: number): string[] => {
   switch (licenseType) {
     case 0:
-      return ['personal'];
+      return ['buy']; 
     case 1:
-      return ['rent'];
+      return ['rent']; 
     case 2:
       return ['buy', 'rent'];
     case 3:
@@ -22,7 +22,7 @@ const getLicenseTypes = (licenseType: number): string[] => {
     case 4:
       return ['child remix'];
     default:
-      return [];
+      return ['buy'];
   }
 };
 
@@ -31,6 +31,23 @@ interface LicenseModalProps {
   onClose: () => void;
   ip: any; // Change to 'any' to support both mock and blockchain data
 }
+
+// Create a utility function to format prices consistently
+const formatPrice = (priceInWei: bigint | string | number): string => {
+  try {
+    if (typeof priceInWei === 'bigint') {
+      return ethers.formatEther(priceInWei);
+    } else if (typeof priceInWei === 'string' && priceInWei.includes('n')) {
+      // Handle BigInt string format with 'n' suffix
+      return ethers.formatEther(BigInt(priceInWei.slice(0, -1)));
+    } else {
+      return ethers.formatEther(priceInWei.toString());
+    }
+  } catch (error) {
+    console.error('Error formatting price:', error);
+    return '0.00';
+  }
+};
 
 export const LicenseModal: React.FC<LicenseModalProps> = ({
   isOpen,
@@ -98,17 +115,45 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   console.log('Raw price value:', ip?.basePrice || ip?.[7] || ip?.price);
   console.log('Parsed price:', price);
 
-  // Get license types safely
+  // Updated license types detection
   const licenseTypes = Array.isArray(ip.licenseTypes)
     ? ip.licenseTypes
-    : getLicenseTypes(Number(ip.licenseType || ip[6] || 0));
+    : getLicenseTypes(
+        Number(
+          // Check for licenseopt first before trying licenseType
+          typeof ip.licenseopt === 'number'
+            ? ip.licenseopt
+            : typeof ip.licenseopt === 'bigint'
+            ? Number(ip.licenseopt)
+            : typeof ip.licenseType === 'number'
+            ? ip.licenseType
+            : typeof ip.licenseType === 'bigint'
+            ? Number(ip.licenseType)
+            : typeof ip[5] === 'bigint'
+            ? Number(ip[5]) // Using index 5 instead of 6 based on your contract
+            : 0
+        )
+      );
+
+  // Add debug logging
+  console.log('Raw licenseopt value:', ip.licenseopt || ip[5]);
+  console.log('Determined license types:', licenseTypes);
+
+  console.log(
+    'Initial license type:',
+    licenseTypes.includes('buy') ? 'buy' : 'rent'
+  );
 
   // Get image URL safely
   const imageUrl = ip.thumbnail || ip.fileUri || ip[5] || '/placeholder.svg';
 
   // Set default license type safely
   const [licenseType, setLicenseType] = useState<'buy' | 'rent'>(
-    licenseTypes.includes('buy') ? 'buy' : 'rent'
+    licenseTypes.includes('buy')
+      ? 'buy'
+      : licenseTypes.includes('rent')
+      ? 'rent'
+      : 'buy' // Default to 'buy' if empty
   );
 
   const [duration, setDuration] = useState(30);
@@ -129,13 +174,19 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
 
     try {
       if (licenseType === 'buy') {
-        // For buy operations, use the base price
-        await handleBuyIP(price.toString());
-      } else if (licenseType === 'rent') {
-        // For rent operations, calculate the price based on duration
-        const rentTotal = calculatePrice().toString();
+        try {
+          // Make sure we're sending the correct price format
+          console.log(`Buying IP #${id} with ${price} ETH`);
 
-        // The contract expects the calculated price as both a parameter and as the transaction value
+          // Let's handle both cases: either the price is already in BigInt format or needs conversion
+          await handleBuyIP(ethers.parseEther(price.toString()).toString());
+        } catch (priceError) {
+          console.error('Error formatting price:', priceError);
+          // If parseEther fails (perhaps price is already in wei), try using the original price
+          await handleBuyIP(price.toString());
+        }
+      } else if (licenseType === 'rent') {
+        const rentTotal = calculatePrice().toString();
         await handleRentIP(rentTotal, duration);
       }
 
@@ -145,8 +196,22 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
         onClose();
         setTxStatus('idle');
       }, 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Transaction failed:', error);
+
+      // Enhanced error reporting
+      if (error.code === 'CALL_EXCEPTION') {
+        console.error('Contract execution reverted. This could be due to:');
+        console.error('- Insufficient funds for gas + value');
+        console.error('- IP already purchased by someone else');
+        console.error('- Not meeting contract requirements');
+      }
+
+      // Show specific error message if available
+      let errorMsg = 'There was an error processing your transaction.';
+      if (error.reason) errorMsg += ` Reason: ${error.reason}`;
+
+      // Set state and show error
       setTxStatus('error');
     }
   };
@@ -162,11 +227,14 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
     return (price * duration) / 30;
   };
 
-  console.log('Duration:', duration);
-  console.log(
-    'Calculated price for duration:',
-    Math.round(((price * duration) / 30) * 1000) / 1000
-  );
+  // Only log duration details for rent license type
+  if (licenseType === 'rent') {
+    console.log('Duration:', duration);
+    console.log(
+      'Calculated price for duration:',
+      Math.round(((price * duration) / 30) * 1000) / 1000
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -291,9 +359,9 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                     <div className="text-sm font-medium">Total Price:</div>
                     <div className="text-lg font-bold">
                       {calculatePrice()}{' '}
-                      {/* Show the token symbol separately */}
+                      {/* This is the correct formatted price */}
                       <span className="ml-1">ETH</span>{' '}
-                      {/* or whatever your token symbol is */}
+                      {/* ETH is the correct token symbol */}
                     </div>
                   </div>
                   <button
