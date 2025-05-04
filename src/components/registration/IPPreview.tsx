@@ -1,11 +1,12 @@
 'use client';
 
-import { IPFormData, LicenseType } from './IPRegistration';
+import { IPFormData } from './IPRegistration';
+import { LicenseType, LicenseTypeString } from '@/utils/enums';
 
 interface IPPreviewProps {
   formData: IPFormData;
   isRemix?: boolean;
-  selectedLicenseOptions?: LicenseType[];
+  selectedLicenseOptions?: LicenseTypeString[]; // Changed from LicenseType[] to LicenseTypeString[]
 }
 
 export const IPPreview: React.FC<IPPreviewProps> = ({

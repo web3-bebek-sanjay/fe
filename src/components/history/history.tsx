@@ -7,7 +7,7 @@ import {
   ExternalLinkIcon,
   ClockIcon,
 } from 'lucide-react';
-import { useAccount } from 'wagmi';
+import { useWallet } from '@/context/WalletContext';
 
 interface LicensedIP {
   id: string;
@@ -23,7 +23,7 @@ interface LicensedIP {
 }
 
 export const History: React.FC = () => {
-  const { isConnected } = useAccount();
+  const { isConnected } = useWallet(); // Replace useAccount with useWallet
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedLicenseType, setSelectedLicenseType] = useState<string>('');

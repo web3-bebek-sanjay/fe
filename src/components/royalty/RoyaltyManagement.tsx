@@ -12,7 +12,7 @@ import {
   Edit3Icon,
   MoreHorizontalIcon,
 } from 'lucide-react';
-import { useAccount } from 'wagmi';
+import { useWallet } from '@/context/WalletContext';
 
 interface OwnedIP {
   id: string;
@@ -25,7 +25,7 @@ interface OwnedIP {
 }
 
 export const RoyaltyManagement: React.FC = () => {
-  const { isConnected } = useAccount();
+  const { isConnected } = useWallet(); // Replace useAccount with useWallet
   const [dateRange, setDateRange] = useState('month');
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');

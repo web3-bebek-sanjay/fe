@@ -1,21 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RegistrationForm } from './RegistrationForm';
-import { RemixRegistrationForm } from './RemixRegistrationForm';
 import { IPPreview } from './IPPreview';
 import { TransactionStatus } from '../ui/TransactionStatus';
-import { useAccount } from 'wagmi';
-
-export type LicenseType = 'personal' | 'rent' | 'remix';
-export type LicenseMode = 'personal' | 'commercial';
-export type CommercialType = 'rent' | 'remix';
+import { useWallet } from '@/context/WalletContext';
+import {
+  LicenseType,
+  LicenseTypeString,
+  LICENSE_TYPE_MAPPING,
+  LicenseMode,
+  CommercialType,
+  CategoryEnum,
+  getCategoryValue,
+  getCategoryName,
+} from '@/utils/enums';
 
 export interface IPFormData {
   title: string;
   description: string;
   category: string;
-  licenseType: LicenseType;
+  licenseType: LicenseTypeString;
   licenseMode: LicenseMode;
   commercialType?: CommercialType;
   basePrice: number;
@@ -27,10 +32,23 @@ export interface IPFormData {
 }
 
 export const IPRegistration: React.FC = () => {
-  const { isConnected } = useAccount();
+  const {
+    isConnected,
+    setTitle: setWalletTitle,
+    setDescription: setWalletDescription,
+    setCategory: setWalletCategory,
+    setTag: setWalletTag,
+    setFileUpload: setWalletFile, // Changed from setFile to setFileUpload
+    setLicenseopt: setWalletLicenseType, // Changed from setLicenseType to setLicenseopt
+    setBasePrice: setWalletBasePrice,
+    setRentPrice: setWalletRentPrice,
+    setRoyaltyPercentage: setWalletRoyaltyPercentage,
+    handleRegisterIP,
+  } = useWallet();
+
   const [licenseMode, setLicenseMode] = useState<LicenseMode>('personal');
   const [selectedLicenseOptions, setSelectedLicenseOptions] = useState<
-    LicenseType[]
+    LicenseTypeString[]
   >(['personal']);
   const [formData, setFormData] = useState<IPFormData>({
     title: '',
@@ -38,9 +56,9 @@ export const IPRegistration: React.FC = () => {
     category: '',
     licenseType: 'personal',
     licenseMode: 'personal',
-    basePrice: 0.05,
-    rentPrice: 0.01,
-    royaltyPercentage: 10,
+    basePrice: 0,
+    rentPrice: 0,
+    royaltyPercentage: 0,
     file: null,
     filePreview: '',
   });
@@ -76,48 +94,118 @@ export const IPRegistration: React.FC = () => {
     }
   };
 
-  const updateSelectedLicenseOptions = (options: LicenseType[]) => {
+  const updateSelectedLicenseOptions = (options: LicenseTypeString[]) => {
     setSelectedLicenseOptions(options);
   };
 
+  // Update the handleCommercialTypeChange function
   const handleCommercialTypeChange = (
     e: React.ChangeEvent<HTMLSelectElement>
   ) => {
-    const type = e.target.value as CommercialType;
+    // Here we ensure type safety by using a type assertion or validation
+    const typeValue = e.target.value;
+    const type =
+      typeValue === 'rent' || typeValue === 'remix'
+        ? (typeValue as CommercialType)
+        : 'rent'; // Default to rent if invalid value
+
+    // Now update the form with the valid type
     handleFormChange({
-      licenseType: type,
+      licenseType: type as LicenseTypeString, // Cast to LicenseTypeString since we know it's valid
       commercialType: type,
     });
   };
 
   const handleSubmit = async () => {
     if (!isConnected) return;
-    setTxStatus('pending');
-    // Simulate transaction
-    setTimeout(() => {
-      const success = Math.random() > 0.1;
-      setTxStatus(success ? 'success' : 'error');
-      if (success) {
-        setTimeout(() => {
-          setFormData({
-            title: '',
-            description: '',
-            category: '',
-            licenseType: 'personal',
-            licenseMode: 'personal',
-            basePrice: 0.05,
-            rentPrice: 0.01,
-            royaltyPercentage: 10,
-            file: null,
-            filePreview: '',
-            parentIPId: undefined,
-          });
-          setLicenseMode('personal');
-          setSelectedLicenseOptions(['personal']);
-          setTxStatus('idle');
-        }, 3000);
+
+    try {
+      setTxStatus('pending');
+
+      // Basic validation to prevent empty fields
+      if (!formData.title.trim()) {
+        throw new Error('Title is required');
       }
-    }, 3000);
+      if (!formData.description.trim()) {
+        throw new Error('Description is required');
+      }
+      if (!formData.category) {
+        throw new Error('Category is required');
+      }
+      if (!formData.filePreview) {
+        throw new Error('File is required');
+      }
+
+      let licenseTypeValue = LICENSE_TYPE_MAPPING[formData.licenseType];
+
+      // Convert category to uint
+      const categoryValue = getCategoryValue(formData.category);
+
+      // Convert numeric values to strings and ensure they're in wei format
+      const basePriceInWei = (formData.basePrice * 10 ** 18).toString();
+      const rentPriceInWei = (formData.rentPrice * 10 ** 18).toString();
+      const royaltyPercentage = Math.floor(
+        formData.royaltyPercentage
+      ).toString();
+
+      // Generate a placeholder file reference instead of using the actual file
+      const filePlaceholder = '';
+
+      const ipData = {
+        title: formData.title,
+        description: formData.description,
+        category: categoryValue.toString(), // Convert the enum value to string for the contract
+        tag: '',
+        fileUpload: filePlaceholder, // Changed from file to fileUpload
+        licenseopt: licenseTypeValue, // Changed from licenseType to licenseopt
+        basePrice: basePriceInWei,
+        rentPrice: rentPriceInWei,
+        royaltyPercentage,
+      };
+
+      console.log('Setting wallet context values:', ipData);
+
+      setWalletTitle(ipData.title);
+      setWalletDescription(ipData.description);
+      setWalletCategory(ipData.category);
+      setWalletTag(ipData.tag);
+      setWalletFile(ipData.fileUpload); // Changed to use fileUpload
+      setWalletLicenseType(ipData.licenseopt); // Changed to use licenseopt
+      setWalletBasePrice(ipData.basePrice);
+      setWalletRentPrice(ipData.rentPrice);
+      setWalletRoyaltyPercentage(ipData.royaltyPercentage);
+
+      // Pass the data directly to the handler
+      await handleRegisterIP(ipData);
+
+      // Success handling
+      setTxStatus('success');
+      setTimeout(() => {
+        // Reset form
+        setFormData({
+          title: '',
+          description: '',
+          category: '',
+          licenseType: 'personal',
+          licenseMode: 'personal',
+          basePrice: 0,
+          rentPrice: 0,
+          royaltyPercentage: 0,
+          file: null,
+          filePreview: '',
+          parentIPId: undefined,
+        });
+        setLicenseMode('personal');
+        setSelectedLicenseOptions(['personal']);
+        setTxStatus('idle');
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error registering IP:', error);
+      alert(
+        `Registration failed: ${error.message || 'Unknown error occurred'}`
+      );
+      setTxStatus('error');
+    }
   };
 
   return (

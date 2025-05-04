@@ -1,20 +1,21 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import { Web3Provider } from "@/context/Web3Provider"
+import type React from 'react';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { WalletProvider } from '@/context/WalletContext';
+import { LoadingProvider } from '@/context/LoadingContext';
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "IPX - Intellectual Property Management",
-  description: "Manage your intellectual property assets on the blockchain",
-}
+  title: 'IPX - Intellectual Property Management',
+  description: 'Manage your intellectual property assets on the blockchain',
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html
@@ -22,10 +23,10 @@ export default function RootLayout({
       suppressHydrationWarning
       data-qb-installed="true" >
       <body className={inter.className}>
-        <Web3Provider>
-          {children}
-        </Web3Provider>
+        <LoadingProvider>
+          <WalletProvider>{children}</WalletProvider>
+        </LoadingProvider>
       </body>
-    </html >
-  )
+    </html>
+  );
 }
