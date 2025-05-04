@@ -1,24 +1,35 @@
 'use client';
 
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XIcon, CheckIcon, AlertCircleIcon, LoaderIcon } from 'lucide-react';
 import { useWallet } from '@/context/WalletContext';
 import Image from 'next/image';
+import { ethers } from 'ethers';
+
+// Map license type number to user-friendly formats
+const getLicenseTypes = (licenseType: number): string[] => {
+  switch (licenseType) {
+    case 0:
+      return ['personal'];
+    case 1:
+      return ['rent'];
+    case 2:
+      return ['buy', 'rent'];
+    case 3:
+      return ['parent remix'];
+    case 4:
+      return ['child remix'];
+    default:
+      return [];
+  }
+};
 
 interface LicenseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  ip: {
-    id: string;
-    title: string;
-    owner: string;
-    thumbnail: string;
-    licenseTypes: string[];
-    category: string;
-    price: number;
-  };
+  ip: any; // Change to 'any' to support both mock and blockchain data
 }
 
 export const LicenseModal: React.FC<LicenseModalProps> = ({
@@ -26,37 +37,136 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   onClose,
   ip,
 }) => {
-  const { isConnected } = useWallet();
+  const { isConnected, handleBuyIP, handleRentIP, setTokenId } = useWallet();
+
+  // Handle both data formats - structured object and array-like blockchain data
+  const id = ip.id?.toString() || ip.tokenId?.toString() || '0';
+  const title = ip.title || ip[1] || 'Untitled IP';
+  const owner = ip.owner || ip[0] || 'Unknown';
+
+  // Get price based on data format
+  let price = 0;
+  try {
+    // Create a custom replacer for JSON.stringify that handles BigInt
+    const jsonReplacer = (key: string, value: any) => {
+      if (typeof value === 'bigint') {
+        return value.toString() + 'n'; // Convert BigInt to string and mark with 'n'
+      }
+      return value;
+    };
+
+    console.log('Full IP object:', JSON.stringify(ip, jsonReplacer)); // Use the replacer
+
+    try {
+      // Log specific properties instead of the whole object
+      console.log('IP id:', ip.id || ip.tokenId);
+      console.log('IP title:', ip.title || ip[1]);
+      console.log('IP basePrice:', ip.basePrice || ip[7]);
+
+      if (ip && ip.basePrice) {
+        // Continue your existing code...
+        if (typeof ip.basePrice === 'bigint') {
+          price = parseFloat(ethers.formatEther(ip.basePrice));
+        } else if (typeof ip.basePrice === 'string') {
+          price = parseFloat(ip.basePrice);
+        } else if (typeof ip.basePrice === 'number') {
+          price = ip.basePrice;
+        }
+      } else if (ip && ip[7]) {
+        if (typeof ip[7] === 'bigint') {
+          price = parseFloat(ethers.formatEther(ip[7]));
+        } else {
+          price = parseFloat(ip[7]);
+        }
+      } else if (ip && ip.price) {
+        if (typeof ip.price === 'number') {
+          price = ip.price;
+        } else if (typeof ip.price === 'string') {
+          price = parseFloat(ip.price);
+        }
+      }
+    } catch (error) {
+      console.error('Error formatting price:', error);
+    }
+  } catch (error) {
+    console.error('Error formatting price:', error);
+  }
+
+  // Add this enhanced logging
+  console.log('IP object type:', typeof ip);
+  console.log('IP object keys:', ip ? Object.keys(ip) : 'null/undefined');
+  console.log('Raw price value:', ip?.basePrice || ip?.[7] || ip?.price);
+  console.log('Parsed price:', price);
+
+  // Get license types safely
+  const licenseTypes = Array.isArray(ip.licenseTypes)
+    ? ip.licenseTypes
+    : getLicenseTypes(Number(ip.licenseType || ip[6] || 0));
+
+  // Get image URL safely
+  const imageUrl = ip.thumbnail || ip.fileUri || ip[5] || '/placeholder.svg';
+
+  // Set default license type safely
   const [licenseType, setLicenseType] = useState<'buy' | 'rent'>(
-    ip.licenseTypes.includes('buy') ? 'buy' : 'rent'
+    licenseTypes.includes('buy') ? 'buy' : 'rent'
   );
+
   const [duration, setDuration] = useState(30);
   const [txStatus, setTxStatus] = useState<
     'idle' | 'pending' | 'success' | 'error'
   >('idle');
 
+  // Set token ID when modal opens
+  useEffect(() => {
+    if (isOpen && id) {
+      setTokenId(id);
+    }
+  }, [isOpen, id, setTokenId]);
+
   const handleConfirmLicense = async () => {
     if (!isConnected) return;
     setTxStatus('pending');
-    // Simulate transaction
-    setTimeout(() => {
-      // 90% chance of success
-      const success = Math.random() > 0.1;
-      setTxStatus(success ? 'success' : 'error');
-      // Reset after showing success/error
-      if (success) {
-        setTimeout(() => {
-          onClose();
-          setTxStatus('idle');
-        }, 2000);
+
+    try {
+      if (licenseType === 'buy') {
+        // For buy operations, use the base price
+        await handleBuyIP(price.toString());
+      } else if (licenseType === 'rent') {
+        // For rent operations, calculate the price based on duration
+        const rentTotal = calculatePrice().toString();
+
+        // The contract expects the calculated price as both a parameter and as the transaction value
+        await handleRentIP(rentTotal, duration);
       }
-    }, 2000);
+
+      setTxStatus('success');
+      // Close modal after showing success
+      setTimeout(() => {
+        onClose();
+        setTxStatus('idle');
+      }, 2000);
+    } catch (error) {
+      console.error('Transaction failed:', error);
+      setTxStatus('error');
+    }
   };
 
+  // Improved price calculation function
   const calculatePrice = () => {
-    if (licenseType === 'buy') return ip.price;
-    return Math.round(((ip.price * duration) / 30) * 1000) / 1000; // Rent price based on duration
+    if (licenseType === 'buy') {
+      return price;
+    }
+
+    // For rent: Calculate price based on duration (days)
+    // This gives a pro-rated price based on the standard 30-day rental price
+    return (price * duration) / 30;
   };
+
+  console.log('Duration:', duration);
+  console.log(
+    'Calculated price for duration:',
+    Math.round(((price * duration) / 30) * 1000) / 1000
+  );
 
   return (
     <AnimatePresence>
@@ -83,8 +193,8 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
             <div className="relative">
               <div className="w-full h-48 relative">
                 <Image
-                  src={ip.thumbnail || '/placeholder.svg'}
-                  alt={ip.title}
+                  src={imageUrl}
+                  alt={title}
                   fill
                   className="object-cover"
                 />
@@ -98,9 +208,12 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
               </button>
             </div>
             <div className="p-6">
-              <h3 className="text-xl font-bold mb-1">{ip.title}</h3>
+              <h3 className="text-xl font-bold mb-1">{title}</h3>
               <div className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                Owner: {ip.owner.slice(0, 6)}...{ip.owner.slice(-4)}
+                Owner:{' '}
+                {typeof owner === 'string'
+                  ? `${owner.slice(0, 6)}...${owner.slice(-4)}`
+                  : 'Unknown'}
               </div>
               {txStatus === 'idle' && (
                 <>
@@ -109,7 +222,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                       License Type
                     </label>
                     <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                      {ip.licenseTypes.includes('buy') && (
+                      {licenseTypes.includes('buy') && (
                         <button
                           className={`flex-1 py-2 text-center text-sm font-medium ${
                             licenseType === 'buy'
@@ -121,7 +234,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                           Buy
                         </button>
                       )}
-                      {ip.licenseTypes.includes('rent') && (
+                      {licenseTypes.includes('rent') && (
                         <button
                           className={`flex-1 py-2 text-center text-sm font-medium ${
                             licenseType === 'rent'
@@ -177,7 +290,10 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-sm font-medium">Total Price:</div>
                     <div className="text-lg font-bold">
-                      {calculatePrice()} ETH
+                      {calculatePrice()}{' '}
+                      {/* Show the token symbol separately */}
+                      <span className="ml-1">ETH</span>{' '}
+                      {/* or whatever your token symbol is */}
                     </div>
                   </div>
                   <button

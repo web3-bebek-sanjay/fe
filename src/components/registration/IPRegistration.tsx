@@ -149,14 +149,15 @@ export const IPRegistration: React.FC = () => {
       ).toString();
 
       // Generate a placeholder file reference instead of using the actual file
-      const filePlaceholder = '';
+      const filePlaceholder =
+        formData.filePreview || 'https://placeholder-ipfs.com/image.png';
 
       const ipData = {
         title: formData.title,
         description: formData.description,
         category: categoryValue.toString(), // Convert the enum value to string for the contract
         tag: '',
-        fileUpload: filePlaceholder, // Changed from file to fileUpload
+        fileUpload: filePlaceholder, 
         licenseopt: licenseTypeValue, // Changed from licenseType to licenseopt
         basePrice: basePriceInWei,
         rentPrice: rentPriceInWei,

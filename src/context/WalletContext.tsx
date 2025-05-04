@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode } from 'react';
-import { Contract } from 'ethers';
+import { Contract, ethers } from 'ethers';
 import { getContract } from '@/contracts/contract';
 
 import { getTheBrowserEth, getTheContract, txConfig } from '@/contracts/fetch';
@@ -31,6 +31,11 @@ type WalletContextType = {
   totalSupply: string;
   owner: string;
   connectWallet: () => Promise<void>;
+
+  // IP data
+  myIPs: any[];
+  otherIPs: any[]; // Add this to the type definition
+  currentIP: any;
 
   // Form values
   tokenId: string;
@@ -74,8 +79,8 @@ type WalletContextType = {
     royaltyPercentage: string;
   }) => Promise<void>;
   handleRemixIP: () => Promise<void>;
-  handleBuyIP: () => Promise<void>;
-  handleRentIP: () => Promise<void>;
+  handleBuyIP: (price?: string) => Promise<void>;
+  handleRentIP: (price?: string, duration?: number) => Promise<void>;
   handleGetIP: () => Promise<void>;
   handleGetMyIPs: () => Promise<void>;
   handleGetOtherIPs: () => Promise<void>;
@@ -117,15 +122,25 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const provider = await getTheBrowserEth();
 
       if (!provider) {
-        alert('Provider not found!');
+        alert('Provider not found! Please install MetaMask.');
         return;
       }
 
+      // Force wallet to show a prompt by requesting accounts
+      console.log('Requesting accounts...');
       const accounts = await provider.send('eth_requestAccounts', []);
-      setAccount(accounts[0]);
-      setIsConnected(true);
+      console.log('Accounts received:', accounts);
+
+      if (accounts && accounts.length > 0) {
+        setAccount(accounts[0]);
+        setIsConnected(true);
+        console.log('Wallet connected:', accounts[0]);
+      } else {
+        alert('No accounts found. Please unlock your wallet.');
+      }
     } catch (error) {
-      alert('Error connecting wallet: ' + error);
+      console.error('Error connecting wallet:', error);
+      alert('Error connecting wallet: ' + (error.message || error));
     }
   };
 
@@ -185,7 +200,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     title: string;
     description: string;
     category: string;
-    tag: string;
     fileUpload: string;
     licenseopt: number;
     basePrice: string;
@@ -198,8 +212,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         const ipTitle = data?.title || title;
         const ipDescription = data?.description || description;
         const ipCategory = data?.category || category;
-        const ipTag = data?.tag || tag;
-        const ipFileUpload = data?.fileUpload || fileUpload;
+        const ipFileUpload = '';
         const ipLicenseopt =
           data?.licenseopt !== undefined ? data?.licenseopt : licenseopt;
         const ipBasePrice = data?.basePrice || basePrice;
@@ -211,7 +224,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           title: ipTitle,
           description: ipDescription,
           category: ipCategory,
-          tag: ipTag,
           fileUpload: ipFileUpload,
           licenseopt: ipLicenseopt,
           basePrice: ipBasePrice,
@@ -237,7 +249,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             ipTitle,
             ipDescription,
             BigInt(ipCategory),
-            ipTag,
             ipFileUpload,
             ipLicenseopt,
             BigInt(ipBasePrice),
@@ -276,39 +287,82 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const handleBuyIP = async () => {
+  const handleBuyIP = async (priceParam?: string) => {
     if (!tokenId) return;
 
     await headerGetterContract(async (contract: Contract) => {
-      // First get the IP details to know the price
-      const ip = await contract.getIP(BigInt(tokenId));
-      const price = ip.basePrice;
+      try {
+        // First get the IP details to know the price
+        const ip = await contract.getIP(BigInt(tokenId));
 
-      const tx = await contract.buyIP(BigInt(tokenId), {
-        ...txConfig,
-        value: price,
-      });
-      await tx.wait();
-      alert('IP purchased successfully!');
+        // Use the price parameter if provided, otherwise use the IP's basePrice
+        const price = priceParam ? ethers.parseEther(priceParam) : ip.basePrice;
+
+        const tx = await contract.buyIP(BigInt(tokenId), {
+          ...txConfig,
+          value: price,
+          gasLimit: 3000000, // Adding explicit gas limit for consistency
+        });
+        await tx.wait();
+        alert('IP purchased successfully!');
+      } catch (error) {
+        console.error('Error buying IP:', error);
+        // More detailed error logging
+        if (error.reason) console.error('Error reason:', error.reason);
+        throw error;
+      }
     });
   };
 
-
-
-  const handleRentIP = async () => {
+  const handleRentIP = async (priceParam?: string, durationParam?: number) => {
     if (!tokenId) return;
 
     await headerGetterContract(async (contract: Contract) => {
-      // First get the IP details to know the rent price
-      const ip = await contract.getIP(BigInt(tokenId));
-      const price = ip.rentPrice;
+      try {
+        // First get the IP details to know the rent price
+        const ip = await contract.getIP(BigInt(tokenId));
 
-      const tx = await contract.rentIP(BigInt(tokenId), {
-        ...txConfig,
-        value: price,
-      });
-      await tx.wait();
-      alert('IP rented successfully!');
+        // Use the price parameter if provided, otherwise use the IP's rentPrice
+        let finalPriceWei;
+
+        if (priceParam) {
+          // If price is provided as a string (likely in ETH), convert to wei
+          finalPriceWei = ethers.parseEther(priceParam);
+        } else {
+          // If using the contract's rentPrice, it's already in wei
+          // Calculate based on duration if provided
+          const baseRentPrice = ip.rentPrice;
+          if (durationParam) {
+            // Pro-rate the price based on duration
+            finalPriceWei =
+              (baseRentPrice * BigInt(durationParam)) / BigInt(30);
+          } else {
+            finalPriceWei = baseRentPrice;
+          }
+        }
+
+        console.log(
+          `Renting IP #${tokenId} for ${ethers.formatEther(finalPriceWei)} ETH`
+        );
+
+        // Call rentIP with both required parameters
+        const tx = await contract.rentIP(
+          BigInt(tokenId),
+          finalPriceWei, // Send the calculated price as the contract parameter
+          {
+            ...txConfig,
+            value: finalPriceWei, // Also send the same amount as the transaction value
+            gasLimit: 3000000,
+          }
+        );
+
+        await tx.wait();
+        alert('IP rented successfully!');
+      } catch (error) {
+        console.error('Error renting IP:', error);
+        if (error.reason) console.error('Error reason:', error.reason);
+        throw error;
+      }
     });
   };
 
@@ -336,9 +390,32 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!account) return;
 
     await headerGetterContract(async (contract: Contract) => {
-      const result = await contract.getIPsNotOwnedBy(account);
-      setOtherIPs(result);
-      alert('Other IPs fetched successfully');
+      try {
+        console.log('Current account:', account);
+        const result = await contract.getIPsNotOwnedBy(account);
+        console.log('Raw contract result for otherIPs:', result);
+
+        // Check if result is an array-like object with length property
+        if (result && typeof result === 'object' && 'length' in result) {
+          console.log('Result has length:', result.length);
+
+          // Log a few elements if available
+          if (result.length > 0) {
+            console.log('First item:', result[0]);
+          }
+        }
+
+        setOtherIPs(result);
+        if (result.length === 0) {
+          console.log(
+            "No other IPs found - this may be expected if you're the only user"
+          );
+        } else {
+          alert('Other IPs fetched successfully');
+        }
+      } catch (error) {
+        console.error('Error in handleGetOtherIPs:', error);
+      }
     });
   };
 
@@ -353,6 +430,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         totalSupply,
         owner,
         connectWallet,
+
+        // IP data
+        myIPs,
+        otherIPs, // Add this to the provider value
+        currentIP,
 
         // Form values
         tokenId,

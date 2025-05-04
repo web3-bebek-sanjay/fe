@@ -1,16 +1,16 @@
-"use client";
+'use client';
 // context/LoadingContext.tsx
-import React, { createContext, useState, useContext, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode } from 'react';
 
-type LoadingContextType = {
+interface LoadingContextType {
   loading: boolean;
-  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
-};
+  setLoading: (loading: boolean) => void;
+}
 
 const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 
 export const LoadingProvider = ({ children }: { children: ReactNode }) => {
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
   return (
     <LoadingContext.Provider value={{ loading, setLoading }}>
@@ -22,7 +22,7 @@ export const LoadingProvider = ({ children }: { children: ReactNode }) => {
 export const useLoading = (): LoadingContextType => {
   const context = useContext(LoadingContext);
   if (!context) {
-    throw new Error("useLoading must be used within a LoadingProvider");
+    throw new Error('useLoading must be used within a LoadingProvider');
   }
   return context;
 };
