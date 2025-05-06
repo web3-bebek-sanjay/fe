@@ -12,9 +12,9 @@ import { ethers } from 'ethers';
 const getLicenseTypes = (licenseType: number): string[] => {
   switch (licenseType) {
     case 0:
-      return ['buy']; 
+      return ['personal']; // Changed from 'buy' to 'personal' to match your LicenseType enum
     case 1:
-      return ['rent']; 
+      return ['rent'];
     case 2:
       return ['buy', 'rent'];
     case 3:
@@ -57,7 +57,33 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   const { isConnected, handleBuyIP, handleRentIP, setTokenId } = useWallet();
 
   // Handle both data formats - structured object and array-like blockchain data
-  const id = ip.id?.toString() || ip.tokenId?.toString() || '0';
+  const extractTokenId = (ipObject: any): string => {
+    console.log('Extracting token ID from:', ipObject);
+
+    // Try different possible token ID sources
+    if (ipObject.tokenId !== undefined) {
+      return ipObject.tokenId.toString();
+    } else if (ipObject.id !== undefined) {
+      return ipObject.id.toString();
+    } else {
+      // Search for the token ID in the ownerToTokenIds mapping
+      // This is more complex and would require a separate contract call
+      console.warn('Could not directly extract token ID from IP object');
+
+      // For debugging, log the full object structure
+      console.log(
+        'Full IP structure:',
+        JSON.stringify(ipObject, (key, value) => {
+          if (typeof value === 'bigint') return value.toString() + 'n';
+          return value;
+        })
+      );
+
+      return '';
+    }
+  };
+
+  const id = extractTokenId(ip);
   const title = ip.title || ip[1] || 'Untitled IP';
   const owner = ip.owner || ip[0] || 'Unknown';
 
@@ -75,13 +101,13 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
     console.log('Full IP object:', JSON.stringify(ip, jsonReplacer)); // Use the replacer
 
     try {
-      // Log specific properties instead of the whole object
-      console.log('IP id:', ip.id || ip.tokenId);
-      console.log('IP title:', ip.title || ip[1]);
-      console.log('IP basePrice:', ip.basePrice || ip[7]);
-
-      if (ip && ip.basePrice) {
-        // Continue your existing code...
+      // Check real contract data format first - IP with blockchain format uses index 6 for basePrice
+      if (ip && ip[6] !== undefined && typeof ip[6] === 'bigint') {
+        price = parseFloat(ethers.formatEther(ip[6]));
+        console.log('Found price at index 6:', ip[6], 'Converted to:', price);
+      }
+      // Then try standard object properties
+      else if (ip && ip.basePrice !== undefined) {
         if (typeof ip.basePrice === 'bigint') {
           price = parseFloat(ethers.formatEther(ip.basePrice));
         } else if (typeof ip.basePrice === 'string') {
@@ -89,17 +115,15 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
         } else if (typeof ip.basePrice === 'number') {
           price = ip.basePrice;
         }
-      } else if (ip && ip[7]) {
-        if (typeof ip[7] === 'bigint') {
-          price = parseFloat(ethers.formatEther(ip[7]));
-        } else {
-          price = parseFloat(ip[7]);
-        }
-      } else if (ip && ip.price) {
+      }
+      // Check other possible price locations
+      else if (ip && ip.price !== undefined) {
         if (typeof ip.price === 'number') {
           price = ip.price;
         } else if (typeof ip.price === 'string') {
           price = parseFloat(ip.price);
+        } else if (typeof ip.price === 'bigint') {
+          price = parseFloat(ethers.formatEther(ip.price));
         }
       }
     } catch (error) {
@@ -109,6 +133,14 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
     console.error('Error formatting price:', error);
   }
 
+  // Add enhanced logging
+  console.log('IP object type:', typeof ip);
+  console.log('IP object keys:', ip ? Object.keys(ip) : 'null/undefined');
+  console.log('Index 6 (basePrice):', ip?.[6]);
+  console.log('Index 7:', ip?.[7]);
+  console.log('Raw basePrice property:', ip?.basePrice);
+  console.log('Parsed final price:', price);
+
   // Add this enhanced logging
   console.log('IP object type:', typeof ip);
   console.log('IP object keys:', ip ? Object.keys(ip) : 'null/undefined');
@@ -116,7 +148,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   console.log('Parsed price:', price);
 
   // Updated license types detection
-  const licenseTypes = Array.isArray(ip.licenseTypes)
+  const availableLicenseTypes = Array.isArray(ip.licenseTypes)
     ? ip.licenseTypes
     : getLicenseTypes(
         Number(
@@ -137,23 +169,29 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
 
   // Add debug logging
   console.log('Raw licenseopt value:', ip.licenseopt || ip[5]);
-  console.log('Determined license types:', licenseTypes);
+  console.log('Determined license types:', availableLicenseTypes);
 
   console.log(
     'Initial license type:',
-    licenseTypes.includes('buy') ? 'buy' : 'rent'
+    availableLicenseTypes.includes('buy') ? 'buy' : 'rent'
   );
 
   // Get image URL safely
-  const imageUrl = ip.thumbnail || ip.fileUri || ip[5] || '/placeholder.svg';
+  const imageUrl =
+    ip.thumbnail ||
+    ip.fileUri ||
+    ip[200] ||
+    `https://picsum.photos/seed/${id || 'default'}/200`;
 
   // Set default license type safely
-  const [licenseType, setLicenseType] = useState<'buy' | 'rent'>(
-    licenseTypes.includes('buy')
+  const [licenseType, setLicenseType] = useState<'buy' | 'rent' | 'personal'>(
+    availableLicenseTypes.includes('buy')
       ? 'buy'
-      : licenseTypes.includes('rent')
+      : availableLicenseTypes.includes('rent')
       ? 'rent'
-      : 'buy' // Default to 'buy' if empty
+      : availableLicenseTypes.includes('personal')
+      ? 'personal'
+      : 'buy' // Default to 'buy' if none found
   );
 
   const [duration, setDuration] = useState(30);
@@ -172,22 +210,32 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
     if (!isConnected) return;
     setTxStatus('pending');
 
-    try {
-      if (licenseType === 'buy') {
-        try {
-          // Make sure we're sending the correct price format
-          console.log(`Buying IP #${id} with ${price} ETH`);
+    // Add validation to make sure we have a valid token ID
+    if (!id || id === '0') {
+      setTxStatus('error');
+      return;
+    }
 
-          // Let's handle both cases: either the price is already in BigInt format or needs conversion
-          await handleBuyIP(ethers.parseEther(price.toString()).toString());
-        } catch (priceError) {
-          console.error('Error formatting price:', priceError);
-          // If parseEther fails (perhaps price is already in wei), try using the original price
-          await handleBuyIP(price.toString());
-        }
+    try {
+      console.log(`Processing ${licenseType} for IP with token ID: ${id}`);
+
+      if (licenseType === 'buy' || licenseType === 'personal') {
+        console.log(`Buying IP #${id} with ${price} ETH`);
+        // Pass the IP's ID directly to the buy function
+        await handleBuyIP(price.toString(), id);
       } else if (licenseType === 'rent') {
-        const rentTotal = calculatePrice().toString();
-        await handleRentIP(rentTotal, duration);
+        // Calculate the price based on duration
+        const rentTotal = calculatePrice();
+
+        console.log(
+          `Renting IP #${id} for ${duration} days at ${rentTotal} ETH`
+        );
+
+        // Convert to string and ensure it's formatted correctly for ethers
+        const rentTotalStr = rentTotal.toString();
+
+        // Pass all parameters explicitly to avoid any confusion
+        await handleRentIP(rentTotalStr, duration, id);
       }
 
       setTxStatus('success');
@@ -198,20 +246,6 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
       }, 2000);
     } catch (error: any) {
       console.error('Transaction failed:', error);
-
-      // Enhanced error reporting
-      if (error.code === 'CALL_EXCEPTION') {
-        console.error('Contract execution reverted. This could be due to:');
-        console.error('- Insufficient funds for gas + value');
-        console.error('- IP already purchased by someone else');
-        console.error('- Not meeting contract requirements');
-      }
-
-      // Show specific error message if available
-      let errorMsg = 'There was an error processing your transaction.';
-      if (error.reason) errorMsg += ` Reason: ${error.reason}`;
-
-      // Set state and show error
       setTxStatus('error');
     }
   };
@@ -235,6 +269,40 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
       Math.round(((price * duration) / 30) * 1000) / 1000
     );
   }
+
+  // Update license types detection with better logging
+
+  // Log raw value before processing
+  console.log(
+    'Raw IP licenseopt value:',
+    ip.licenseopt !== undefined
+      ? ip.licenseopt
+      : ip[5] !== undefined
+      ? ip[5]
+      : 'Not found'
+  );
+
+  // Check and coerce numeric types for consistency
+  const getLicenseoptValue = (ipObj: any): number => {
+    // If it's a direct property
+    if (ipObj.licenseopt !== undefined) {
+      const val = ipObj.licenseopt;
+      return typeof val === 'bigint' ? Number(val) : Number(val);
+    }
+    // If it's an array-like structure, check index 5
+    else if (ipObj[5] !== undefined) {
+      const val = ipObj[5];
+      return typeof val === 'bigint' ? Number(val) : Number(val);
+    }
+    // Default to buy-only license
+    return 0;
+  };
+
+  const licenseoptValue = getLicenseoptValue(ip);
+  console.log('Processed licenseopt value:', licenseoptValue);
+
+  const licenseTypes = getLicenseTypes(licenseoptValue);
+  console.log('Determined license types:', licenseTypes);
 
   return (
     <AnimatePresence>
@@ -290,7 +358,19 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                       License Type
                     </label>
                     <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                      {licenseTypes.includes('buy') && (
+                      {availableLicenseTypes.includes('personal') && (
+                        <button
+                          className={`flex-1 py-2 text-center text-sm font-medium ${
+                            licenseType === 'personal'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                          }`}
+                          onClick={() => setLicenseType('personal')}
+                        >
+                          Personal
+                        </button>
+                      )}
+                      {availableLicenseTypes.includes('buy') && (
                         <button
                           className={`flex-1 py-2 text-center text-sm font-medium ${
                             licenseType === 'buy'
@@ -302,7 +382,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                           Buy
                         </button>
                       )}
-                      {licenseTypes.includes('rent') && (
+                      {availableLicenseTypes.includes('rent') && (
                         <button
                           className={`flex-1 py-2 text-center text-sm font-medium ${
                             licenseType === 'rent'

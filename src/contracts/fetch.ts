@@ -6,6 +6,25 @@ export const txConfig = {
   gasLimit: 3_000_000,
 };
 
+const pharosDevnet = {
+  id: 50002,
+  name: 'PharosDevnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://devnet.dplabs-internal.com'],
+      webSocket: ['wss://devnet.dplabs-internal.com'],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Explorer', url: 'https://pharosscan.xyz/' },
+  },
+};
+
 export const getTheBrowserEth = async (): Promise<
   BrowserProvider | undefined
 > => {
@@ -14,8 +33,11 @@ export const getTheBrowserEth = async (): Promise<
     return;
   }
 
-  const provider = new BrowserProvider(window.ethereum);
-
+  const provider = new ethers.BrowserProvider(window.ethereum, {
+    chainId: pharosDevnet.id,
+    name: pharosDevnet.name,
+    // rpcUrls: pharosDevnet.rpcUrls.default.http,
+  });
   return provider;
 };
 
@@ -60,8 +82,6 @@ export const getTheContract = async ({
     console.log('Contract instance created, calling callback');
     await callback(contract);
   } catch (error) {
-    console.error('Error in getTheContract:', error);
-    alert(`Error: ${error.message || 'Unknown error occurred'}`);
   } finally {
     setLoading(false);
   }

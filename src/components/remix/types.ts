@@ -2,19 +2,24 @@ export interface Deposit {
   id: string;
   amount: string;
   date: Date;
-  status: 'confirmed' | 'pending' | 'failed';
+  status: 'pending' | 'confirmed' | 'failed';
 }
 
 export interface Remix {
   id: string;
-  title: string;
+  tokenId: string;
   parentId: string;
-  parentTitle: string;
-  parentCreator: string;
-  coverImage: string;
-  createdAt: Date;
+  title: string;
+  description: string;
+  originalTitle?: string; // Make compatible with your code
+  originalCreator?: string; // Make compatible with your code
+  parentTitle?: string; // Keep for backward compatibility
+  parentCreator?: string; // Keep for backward compatibility
   royaltyRate: number;
-  deposits: Deposit[];
+  status: string;
+  createdAt: Date;
   totalSales: string;
   totalRoyaltiesPaid: string;
+  deposits: Deposit[];
+  coverImage?: string; // Make optional
 }

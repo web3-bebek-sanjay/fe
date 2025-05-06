@@ -17,18 +17,21 @@ export const IPPreview: React.FC<IPPreviewProps> = ({
   // Determine which license options are selected
   const hasPersonal = selectedLicenseOptions?.includes('personal');
   const hasRent = selectedLicenseOptions?.includes('rent');
+  const hasBuy = selectedLicenseOptions?.includes('buy');
   const hasRemix = selectedLicenseOptions?.includes('remix');
+
+  // Check if this is a rentbuy license type
+  const isRentBuy = formData.licenseType === 'rentbuy' || (hasBuy && hasRent);
 
   // Get the label for the license type
   const getLicenseTypeLabel = () => {
     if (hasRemix) return 'Commercial - Remix';
 
-    if (hasPersonal && hasRent) return 'Commercial - Buy & Rent';
+    if (isRentBuy) return 'Commercial - Buy & Rent';
 
     if (hasPersonal) {
-      // Different label based on license mode
       return formData.licenseMode === 'commercial'
-        ? 'Commercial - Rent Buy'
+        ? 'Commercial - Buy'
         : 'Personal';
     }
 
@@ -99,7 +102,7 @@ export const IPPreview: React.FC<IPPreviewProps> = ({
             </div>
 
             {/* Show Base Price for Personal/Buy license */}
-            {hasPersonal && !hasRemix && (
+            {(hasPersonal || isRentBuy || hasBuy) && !hasRemix && (
               <div className="flex items-center justify-between">
                 <span className="text-sm">Base Price:</span>
                 <span className="font-medium">{formData.basePrice} ETH</span>
@@ -107,20 +110,16 @@ export const IPPreview: React.FC<IPPreviewProps> = ({
             )}
 
             {/* Show Rent Price for Rent license or Rent Buy license */}
-            {(hasRent ||
-              (hasPersonal && formData.licenseMode === 'commercial')) &&
-              !hasRemix && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">
-                    {hasPersonal && formData.licenseMode === 'commercial'
-                      ? 'Optional Rental:'
-                      : 'Rent Price:'}
-                  </span>
-                  <span className="font-medium">
-                    {formData.rentPrice} ETH/day
-                  </span>
-                </div>
-              )}
+            {(hasRent || isRentBuy) && !hasRemix && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm">
+                  {isRentBuy ? 'Optional Rental:' : 'Rent Price:'}
+                </span>
+                <span className="font-medium">
+                  {formData.rentPrice} ETH/day
+                </span>
+              </div>
+            )}
 
             {/* For Remix, show that pricing is set by the parent IP */}
             {hasRemix && isRemix && (
@@ -128,6 +127,31 @@ export const IPPreview: React.FC<IPPreviewProps> = ({
                 <span className="text-sm font-italic text-slate-600 dark:text-slate-400">
                   Pricing set by parent IP
                 </span>
+              </div>
+            )}
+
+            {/* For Remix, show royalty percentage from parent IP */}
+            {hasRemix && isRemix && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">Royalty to Original Creator:</span>
+                  <span className="font-medium text-purple-700 dark:text-purple-400">
+                    {(formData as any).parentRoyaltyPercentage ||
+                      formData.royaltyPercentage ||
+                      '20'}
+                    %
+                  </span>
+                </div>
+                <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-md">
+                  <p className="text-xs text-purple-800 dark:text-purple-300">
+                    When your remix sells,{' '}
+                    {(formData as any).parentRoyaltyPercentage ||
+                      formData.royaltyPercentage ||
+                      '20'}
+                    % of each sale will be paid to the original IP creator as
+                    royalty.
+                  </p>
+                </div>
               </div>
             )}
           </div>

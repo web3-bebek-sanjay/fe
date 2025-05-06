@@ -20,7 +20,7 @@ const getLicenseTypes = (licenseType: number): string[] => {
     case 4:
       return ['child remix'];
     default:
-      return [];
+      return ['buy'];
   }
 };
 
@@ -40,6 +40,7 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
   const id = ip.id?.toString() || ip.tokenId?.toString() || '0';
   const title = ip.title || ip[1] || 'Untitled IP'; // Use numeric index for blockchain data
   const owner = ip.owner || ip[0] || 'Unknown'; // Owner is usually at index 0
+  const description = ip.description || ip[2] || ''; // Access description
 
   // Format price based on data type
   let price = 0;
@@ -68,7 +69,11 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
       : getCategoryName(Number(ip.category || ip[3] || 0));
 
   // Use thumbnail if available or fileUri for blockchain data
-  const imageUrl = ip.thumbnail || ip.fileUri || ip[5] || '/placeholder.svg';
+  const imageUrl =
+    ip.thumbnail ||
+    ip.fileUri ||
+    ip[200] ||
+    `https://picsum.photos/seed/${id || 'default'}/200`;
 
   return (
     <motion.div
@@ -104,8 +109,16 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
             ? `${owner.slice(0, 6)}...${owner.slice(-4)}`
             : 'Unknown'}
         </div>
+        <div className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+          Description: {description}
+        </div>
         <div className="flex justify-between items-center">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {licenseTypes.includes('personal') && (
+              <span className="bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300 px-2 py-0.5 rounded text-xs font-medium">
+                Personal
+              </span>
+            )}
             {licenseTypes.includes('buy') && (
               <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-0.5 rounded text-xs font-medium">
                 Buy
@@ -114,6 +127,16 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
             {licenseTypes.includes('rent') && (
               <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded text-xs font-medium">
                 Rent
+              </span>
+            )}
+            {licenseTypes.includes('parent remix') && (
+              <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded text-xs font-medium">
+                Parent Remix
+              </span>
+            )}
+            {licenseTypes.includes('child remix') && (
+              <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-0.5 rounded text-xs font-medium">
+                Child Remix
               </span>
             )}
           </div>

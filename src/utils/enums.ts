@@ -14,7 +14,8 @@ export type LicenseTypeString =
   | 'rentbuy'
   | 'remix'
   | 'parentRemix'
-  | 'childRemix';
+  | 'childRemix'
+  | 'buy';
 
 // Mapping between string representation and numeric values
 export const LICENSE_TYPE_MAPPING: Record<LicenseTypeString, LicenseType> = {
@@ -24,6 +25,7 @@ export const LICENSE_TYPE_MAPPING: Record<LicenseTypeString, LicenseType> = {
   remix: LicenseType.ParentRemix,
   parentRemix: LicenseType.ParentRemix,
   childRemix: LicenseType.ChildRemix,
+  buy: LicenseType.RentAndBuy, 
 };
 
 // License modes

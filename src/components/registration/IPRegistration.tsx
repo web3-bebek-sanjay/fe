@@ -38,12 +38,13 @@ export const IPRegistration: React.FC = () => {
     setDescription: setWalletDescription,
     setCategory: setWalletCategory,
     setTag: setWalletTag,
-    setFileUpload: setWalletFile, // Changed from setFile to setFileUpload
-    setLicenseopt: setWalletLicenseType, // Changed from setLicenseType to setLicenseopt
+    setFileUpload: setWalletFile,
+    setLicenseopt: setWalletLicenseType,
     setBasePrice: setWalletBasePrice,
     setRentPrice: setWalletRentPrice,
     setRoyaltyPercentage: setWalletRoyaltyPercentage,
     handleRegisterIP,
+    handleRemixIP,
   } = useWallet();
 
   const [licenseMode, setLicenseMode] = useState<LicenseMode>('personal');
@@ -116,6 +117,22 @@ export const IPRegistration: React.FC = () => {
     });
   };
 
+  const handleBuyRentSelection = (selected: boolean) => {
+    if (selected) {
+      // If selecting both buy and rent
+      handleFormChange({
+        licenseType: 'rentbuy',
+      });
+      setSelectedLicenseOptions(['buy', 'rent']); // Show both badges in the preview
+    } else {
+      // If deselecting one of them, default back to just rent
+      handleFormChange({
+        licenseType: 'rent',
+      });
+      setSelectedLicenseOptions(['rent']);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!isConnected) return;
 
@@ -136,10 +153,13 @@ export const IPRegistration: React.FC = () => {
         throw new Error('File is required');
       }
 
+      // Determine license type
       let licenseTypeValue = LICENSE_TYPE_MAPPING[formData.licenseType];
+      const isRemix = formData.licenseType === 'remix';
 
-      // Convert category to uint
-      const categoryValue = getCategoryValue(formData.category);
+      // Convert category to uint - pass as string to getCategoryValue
+      const categoryNumber = parseInt(formData.category, 10);
+      const categoryValue = getCategoryValue(formData.category); // Pass as string directly from form
 
       // Convert numeric values to strings and ensure they're in wei format
       const basePriceInWei = (formData.basePrice * 10 ** 18).toString();
@@ -149,35 +169,53 @@ export const IPRegistration: React.FC = () => {
       ).toString();
 
       // Generate a placeholder file reference instead of using the actual file
-      const filePlaceholder =
-        formData.filePreview || 'https://placeholder-ipfs.com/image.png';
+      const filePlaceholder = 'https://picsum.photos/seed/${Math.random()}/200';
 
       const ipData = {
         title: formData.title,
         description: formData.description,
-        category: categoryValue.toString(), // Convert the enum value to string for the contract
+        category: categoryValue.toString(),
         tag: '',
-        fileUpload: filePlaceholder, 
-        licenseopt: licenseTypeValue, // Changed from licenseType to licenseopt
+        fileUpload: filePlaceholder,
+        licenseopt: licenseTypeValue,
         basePrice: basePriceInWei,
         rentPrice: rentPriceInWei,
         royaltyPercentage,
+        parentIPId: formData.parentIPId,
       };
-
-      console.log('Setting wallet context values:', ipData);
 
       setWalletTitle(ipData.title);
       setWalletDescription(ipData.description);
       setWalletCategory(ipData.category);
       setWalletTag(ipData.tag);
-      setWalletFile(ipData.fileUpload); // Changed to use fileUpload
-      setWalletLicenseType(ipData.licenseopt); // Changed to use licenseopt
+      setWalletFile(ipData.fileUpload);
+      setWalletLicenseType(ipData.licenseopt);
       setWalletBasePrice(ipData.basePrice);
       setWalletRentPrice(ipData.rentPrice);
       setWalletRoyaltyPercentage(ipData.royaltyPercentage);
 
-      // Pass the data directly to the handler
-      await handleRegisterIP(ipData);
+      // For remix, use dedicated remix function
+      if (isRemix && ipData.parentIPId) {
+        // Make sure parentIPId exists and is properly formatted
+        if (!ipData.parentIPId) {
+          throw new Error('Parent IP ID is required for remixes');
+        }
+
+        // You need to make sure this matches the expected parameter structure in handleRemixIP
+        await handleRemixIP({
+          title: ipData.title,
+          description: ipData.description,
+          category: ipData.category,
+          fileUpload: ipData.fileUpload,
+          parentIPId: ipData.parentIPId,
+        });
+
+        console.log('Remix transaction completed successfully');
+      } else {
+        // Regular IP registration
+        await handleRegisterIP(ipData);
+        console.log('Register IP transaction completed successfully');
+      }
 
       // Success handling
       setTxStatus('success');
