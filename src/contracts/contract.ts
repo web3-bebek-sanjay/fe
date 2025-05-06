@@ -4,7 +4,7 @@ import { ABIBos, ContractType } from './types';
 const contracts: ContractType[] = [
   {
     name: 'IPX',
-    address: '0xC879D82D4501892eaa335312Ce90B722E3F57e26',
+    address: '0x008CCF644B21ea44B0849817ADEbA5efAE4026b3',
     abi: IPX as ABIBos[],
   },
 ];

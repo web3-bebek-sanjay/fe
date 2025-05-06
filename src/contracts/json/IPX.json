@@ -48,7 +48,8 @@
         "name": "royaltyPercentage",
         "type": "uint256",
         "internalType": "uint256"
-      }
+      },
+      { "name": "pendingRoyalty", "type": "uint256", "internalType": "uint256" }
     ],
     "stateMutability": "view"
   },
@@ -72,7 +73,12 @@
     "type": "function",
     "name": "depositRoyalty",
     "inputs": [
-      { "name": "remixTokenId", "type": "uint256", "internalType": "uint256" }
+      { "name": "remixTokenId", "type": "uint256", "internalType": "uint256" },
+      {
+        "name": "remixPaymentAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
     "outputs": [],
     "stateMutability": "payable"
@@ -110,6 +116,11 @@
             "name": "royaltyPercentage",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "pendingRoyalty",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -138,6 +149,11 @@
           { "name": "rentPrice", "type": "uint256", "internalType": "uint256" },
           {
             "name": "royaltyPercentage",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "pendingRoyalty",
             "type": "uint256",
             "internalType": "uint256"
           }
@@ -170,6 +186,11 @@
             "name": "royaltyPercentage",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "pendingRoyalty",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -200,6 +221,11 @@
             "name": "royaltyPercentage",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "pendingRoyalty",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -226,6 +252,11 @@
           { "name": "rentPrice", "type": "uint256", "internalType": "uint256" },
           {
             "name": "royaltyPercentage",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "pendingRoyalty",
             "type": "uint256",
             "internalType": "uint256"
           }
@@ -285,6 +316,11 @@
               },
               {
                 "name": "royaltyPercentage",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pendingRoyalty",
                 "type": "uint256",
                 "internalType": "uint256"
               }
@@ -364,6 +400,11 @@
                 "name": "royaltyPercentage",
                 "type": "uint256",
                 "internalType": "uint256"
+              },
+              {
+                "name": "pendingRoyalty",
+                "type": "uint256",
+                "internalType": "uint256"
               }
             ]
           },
@@ -377,7 +418,7 @@
     "type": "function",
     "name": "getMyIPsRemix",
     "inputs": [
-      { "name": "parentTokenId", "type": "uint256", "internalType": "uint256" }
+      { "name": "owner", "type": "address", "internalType": "address" }
     ],
     "outputs": [
       {
@@ -424,6 +465,11 @@
               },
               {
                 "name": "royaltyPercentage",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "pendingRoyalty",
                 "type": "uint256",
                 "internalType": "uint256"
               }
@@ -488,6 +534,11 @@
                 "name": "royaltyPercentage",
                 "type": "uint256",
                 "internalType": "uint256"
+              },
+              {
+                "name": "pendingRoyalty",
+                "type": "uint256",
+                "internalType": "uint256"
               }
             ]
           },
@@ -533,6 +584,11 @@
             "name": "royaltyPercentage",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "pendingRoyalty",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -566,7 +622,8 @@
         "name": "royaltyPercentage",
         "type": "uint256",
         "internalType": "uint256"
-      }
+      },
+      { "name": "pendingRoyalty", "type": "uint256", "internalType": "uint256" }
     ],
     "stateMutability": "view"
   },
@@ -684,6 +741,17 @@
   },
   {
     "type": "function",
+    "name": "rentData",
+    "inputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+    "outputs": [
+      { "name": "renter", "type": "address", "internalType": "address" },
+      { "name": "expiresAt", "type": "uint256", "internalType": "uint256" },
+      { "name": "isValid", "type": "bool", "internalType": "bool" }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "rentIP",
     "inputs": [
       { "name": "tokenId", "type": "uint256", "internalType": "uint256" },
@@ -726,7 +794,8 @@
         "name": "royaltyPercentage",
         "type": "uint256",
         "internalType": "uint256"
-      }
+      },
+      { "name": "pendingRoyalty", "type": "uint256", "internalType": "uint256" }
     ],
     "stateMutability": "view"
   },
