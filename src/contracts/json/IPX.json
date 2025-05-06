@@ -73,12 +73,7 @@
     "type": "function",
     "name": "depositRoyalty",
     "inputs": [
-      { "name": "remixTokenId", "type": "uint256", "internalType": "uint256" },
-      {
-        "name": "remixPaymentAmount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
+      { "name": "remixTokenId", "type": "uint256", "internalType": "uint256" }
     ],
     "outputs": [],
     "stateMutability": "payable"
