@@ -853,17 +853,24 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
     await headerGetterContract(async (contract: Contract) => {
       try {
+        // Convert ETH amount to wei
         const weiAmount = ethers.parseEther(amount);
         console.log(
-          `Depositing ${amount} ETH (${weiAmount} wei) as royalty for remix #${remixTokenId}`
+          `Depositing ${amount} ETH (${weiAmount} wei) as royalty payment for remix #${remixTokenId}`
         );
 
-        // Call the contract function with the proper parameters
-        const tx = await contract.depositRoyalty(tokenIdBigInt, {
-          ...txConfig,
-          value: weiAmount,
-          gasLimit: 3000000,
-        });
+        // Call the depositRoyalty function with both required parameters
+        // 1. remixTokenId - the parent token ID
+        // 2. remixPaymentAmount - for tracking purposes in contract events
+        const tx = await contract.depositRoyalty(
+          tokenIdBigInt,
+          weiAmount, // Include this as the second parameter
+          {
+            ...txConfig,
+            value: weiAmount, // This is the ETH value sent with the transaction
+            gasLimit: 3000000,
+          }
+        );
 
         console.log('Transaction sent:', tx.hash);
         const receipt = await tx.wait();
