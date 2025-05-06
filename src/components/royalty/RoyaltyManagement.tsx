@@ -53,7 +53,12 @@ export const RoyaltyManagement: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIP, setSelectedIP] = useState<string | null>(null);
   const [royaltyInfo, setRoyaltyInfo] = useState<{
-    [key: string]: { pending: string; claimed: string; isOriginalIP?: boolean };
+    [key: string]: {
+      pending: string;
+      claimed: string;
+      isOriginalIP?: boolean;
+      isYourIP?: boolean;
+    };
   }>({});
 
   // Track which types of data we've loaded
@@ -111,6 +116,9 @@ export const RoyaltyManagement: React.FC = () => {
         const ipData = await contract.getIP(BigInt(tokenId));
         console.log(`IP data for token #${tokenId}:`, ipData);
 
+        // Extract the owner address, ensuring consistent format
+        const ipOwnerAddress = ipData.owner ? ipData.owner.toLowerCase() : null;
+
         // Check if this is an original IP (licenseopt = 0) or a remix (licenseopt = 3 or 4)
         const licenseType = Number(ipData.licenseopt || ipData[5] || 0);
 
@@ -118,21 +126,46 @@ export const RoyaltyManagement: React.FC = () => {
         if (licenseType === 0 || licenseType === 1 || licenseType === 2) {
           const [pending, claimed] = await contract.getRoyalty(BigInt(tokenId));
 
-          // IMPORTANT: Only show royalties if you're the OWNER of this IP
-          // This ensures you don't see royalties you've paid to others
-          if (
+          const isOwner =
             account &&
-            ipData.owner &&
-            ipData.owner.toLowerCase() === account.toLowerCase()
-          ) {
+            ipOwnerAddress &&
+            ipOwnerAddress === account.toLowerCase();
+
+          console.log(`Royalty for token #${tokenId}:`, {
+            pending: ethers.formatEther(pending),
+            claimed: ethers.formatEther(claimed),
+            owner: ipOwnerAddress,
+            currentAccount: account?.toLowerCase(),
+            isOwner: isOwner,
+          });
+
+          // DEVELOPMENT MODE: Allow viewing royalties even if not owner
+          const isDevelopmentMode = true; // Set to false in production
+
+          if (isOwner || isDevelopmentMode) {
             setRoyaltyInfo((prev) => ({
               ...prev,
               [tokenId]: {
                 pending: ethers.formatEther(pending),
                 claimed: ethers.formatEther(claimed),
                 isOriginalIP: true,
+                isYourIP: isOwner, // Track whether this is actually your IP
               },
             }));
+
+            if (isOwner) {
+              console.log(
+                `Updated royalty info for token #${tokenId} (you own this IP)`
+              );
+            } else {
+              console.log(
+                `Updated royalty info for token #${tokenId} (development mode - NOT your IP)`
+              );
+            }
+          } else {
+            console.log(
+              `Skipped updating royalty for token #${tokenId} (not your IP)`
+            );
           }
         }
       } catch (error) {
@@ -278,11 +311,17 @@ export const RoyaltyManagement: React.FC = () => {
     .reduce((total, ip) => total + Number(ip.pendingRoyalty || '0'), 0)
     .toFixed(6);
 
+  // Modified claimedRoyaltiesTotal calculation
   const claimedRoyaltiesTotal = Object.entries(royaltyInfo)
-    .filter(([tokenId, _]) => {
-      // Find the IP and check if it's a personal IP
+    .filter(([tokenId, info]) => {
+      // Find the IP in processedIPs
       const ip = processedIPs.find((ip) => ip.tokenId === tokenId);
-      return ip && ip.type === 'personal';
+      // Log for debugging
+      console.log(
+        `Token #${tokenId} claimed: ${info.claimed}, type: ${ip?.type}, isYourIP: ${info.isYourIP}`
+      );
+      // Include all IPs that you own, regardless of type
+      return ip && info.isYourIP === true;
     })
     .reduce((total, [_, info]) => total + Number(info.claimed || '0'), 0)
     .toFixed(6);
@@ -597,19 +636,20 @@ export const RoyaltyManagement: React.FC = () => {
                       </div>
 
                       {/* Improved pending royalty display */}
-                      {ip.pendingRoyalty &&
-                        Number(ip.pendingRoyalty) > 0 &&
-                        canClaimRoyalties(ip) && (
-                          <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <span className="text-xs font-medium text-green-700 dark:text-green-400">
-                                  Available royalties: {ip.pendingRoyalty} ETH
-                                </span>
-                                <p className="text-xs text-green-600 dark:text-green-500">
-                                  From remixes of your original work
-                                </p>
-                              </div>
+                      {ip.pendingRoyalty && Number(ip.pendingRoyalty) > 0 && (
+                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="text-xs font-medium text-green-700 dark:text-green-400">
+                                Available royalties: {ip.pendingRoyalty} ETH
+                              </span>
+                              <p className="text-xs text-green-600 dark:text-green-500">
+                                {royaltyInfo[ip.tokenId || '']?.isYourIP
+                                  ? 'From remixes of your original work'
+                                  : '[DEVELOPMENT MODE] View only - not your IP'}
+                              </p>
+                            </div>
+                            {royaltyInfo[ip.tokenId || '']?.isYourIP && (
                               <button
                                 onClick={() =>
                                   ip.tokenId && onClaimRoyalty(ip.tokenId)
@@ -619,9 +659,10 @@ export const RoyaltyManagement: React.FC = () => {
                                 <DollarSignIcon size={12} className="mr-1" />{' '}
                                 Claim
                               </button>
-                            </div>
+                            )}
                           </div>
-                        )}
+                        </div>
+                      )}
 
                       <div className="flex justify-between items-center mt-3">
                         <span className="text-xs text-slate-500 dark:text-slate-400">
