@@ -40,6 +40,7 @@ export const RoyaltyManagement: React.FC = () => {
     headerGetterContract,
     rentalsByIP,
     remixesByParentIP,
+    account,
   } = useWallet();
 
   const [dateRange, setDateRange] = useState('month');
@@ -52,7 +53,7 @@ export const RoyaltyManagement: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIP, setSelectedIP] = useState<string | null>(null);
   const [royaltyInfo, setRoyaltyInfo] = useState<{
-    [key: string]: { pending: string; claimed: string };
+    [key: string]: { pending: string; claimed: string; isOriginalIP?: boolean };
   }>({});
 
   // Track which types of data we've loaded
@@ -106,14 +107,34 @@ export const RoyaltyManagement: React.FC = () => {
 
     await headerGetterContract(async (contract: Contract) => {
       try {
-        const [pending, claimed] = await contract.getRoyalty(BigInt(tokenId));
-        setRoyaltyInfo((prev) => ({
-          ...prev,
-          [tokenId]: {
-            pending: ethers.formatEther(pending),
-            claimed: ethers.formatEther(claimed),
-          },
-        }));
+        // First get the IP to determine if it's an original or remix
+        const ipData = await contract.getIP(BigInt(tokenId));
+        console.log(`IP data for token #${tokenId}:`, ipData);
+
+        // Check if this is an original IP (licenseopt = 0) or a remix (licenseopt = 3 or 4)
+        const licenseType = Number(ipData.licenseopt || ipData[5] || 0);
+
+        // Only fetch royalty info for original IPs
+        if (licenseType === 0 || licenseType === 1 || licenseType === 2) {
+          const [pending, claimed] = await contract.getRoyalty(BigInt(tokenId));
+
+          // IMPORTANT: Only show royalties if you're the OWNER of this IP
+          // This ensures you don't see royalties you've paid to others
+          if (
+            account &&
+            ipData.owner &&
+            ipData.owner.toLowerCase() === account.toLowerCase()
+          ) {
+            setRoyaltyInfo((prev) => ({
+              ...prev,
+              [tokenId]: {
+                pending: ethers.formatEther(pending),
+                claimed: ethers.formatEther(claimed),
+                isOriginalIP: true,
+              },
+            }));
+          }
+        }
       } catch (error) {
         console.error(
           `Error fetching royalty info for token #${tokenId}:`,
@@ -241,11 +262,30 @@ export const RoyaltyManagement: React.FC = () => {
     }
   };
 
+  // Add a helper function to check if the user can claim royalties for this IP
+  const canClaimRoyalties = (ip: OwnedIP): boolean => {
+    return ip.type === 'personal' && Number(ip.pendingRoyalty || 0) > 0;
+  };
+
   // Filter the IPs based on tab selection
   const filteredIPs = processedIPs.filter((ip) => {
     if (activeTab === 'all') return true;
     return ip.type === activeTab;
   });
+
+  const pendingRoyaltiesTotal = processedIPs
+    .filter((ip) => ip.type === 'personal') // Only count personal IPs (you're the creator)
+    .reduce((total, ip) => total + Number(ip.pendingRoyalty || '0'), 0)
+    .toFixed(6);
+
+  const claimedRoyaltiesTotal = Object.entries(royaltyInfo)
+    .filter(([tokenId, _]) => {
+      // Find the IP and check if it's a personal IP
+      const ip = processedIPs.find((ip) => ip.tokenId === tokenId);
+      return ip && ip.type === 'personal';
+    })
+    .reduce((total, [_, info]) => total + Number(info.claimed || '0'), 0)
+    .toFixed(6);
 
   if (!isConnected) {
     return (
@@ -288,27 +328,13 @@ export const RoyaltyManagement: React.FC = () => {
           <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
             Total Pending Royalties
           </h3>
-          <p className="mt-2 text-2xl font-bold">
-            {processedIPs
-              .reduce(
-                (total, ip) => total + Number(ip.pendingRoyalty || '0'),
-                0
-              )
-              .toFixed(6)}{' '}
-            ETH
-          </p>
+          <p className="mt-2 text-2xl font-bold">{pendingRoyaltiesTotal} ETH</p>
         </div>
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
           <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
             Total Claimed Royalties
           </h3>
-          <p className="mt-2 text-2xl font-bold">
-            {/* Sum of all claimed royalties */}
-            {Object.values(royaltyInfo)
-              .reduce((total, info) => total + Number(info.claimed || '0'), 0)
-              .toFixed(6)}{' '}
-            ETH
-          </p>
+          <p className="mt-2 text-2xl font-bold">{claimedRoyaltiesTotal} ETH</p>
         </div>
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
           <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -571,29 +597,31 @@ export const RoyaltyManagement: React.FC = () => {
                       </div>
 
                       {/* Improved pending royalty display */}
-                      {ip.pendingRoyalty && Number(ip.pendingRoyalty) > 0 && (
-                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <span className="text-xs font-medium text-green-700 dark:text-green-400">
-                                Available royalties: {ip.pendingRoyalty} ETH
-                              </span>
-                              <p className="text-xs text-green-600 dark:text-green-500">
-                                From remixes of your original work
-                              </p>
+                      {ip.pendingRoyalty &&
+                        Number(ip.pendingRoyalty) > 0 &&
+                        canClaimRoyalties(ip) && (
+                          <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <span className="text-xs font-medium text-green-700 dark:text-green-400">
+                                  Available royalties: {ip.pendingRoyalty} ETH
+                                </span>
+                                <p className="text-xs text-green-600 dark:text-green-500">
+                                  From remixes of your original work
+                                </p>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  ip.tokenId && onClaimRoyalty(ip.tokenId)
+                                }
+                                className="text-xs bg-green-500 hover:bg-green-600 text-white rounded-md px-2 py-1 flex items-center"
+                              >
+                                <DollarSignIcon size={12} className="mr-1" />{' '}
+                                Claim
+                              </button>
                             </div>
-                            <button
-                              onClick={() =>
-                                ip.tokenId && onClaimRoyalty(ip.tokenId)
-                              }
-                              className="text-xs bg-green-500 hover:bg-green-600 text-white rounded-md px-2 py-1 flex items-center"
-                            >
-                              <DollarSignIcon size={12} className="mr-1" />{' '}
-                              Claim
-                            </button>
                           </div>
-                        </div>
-                      )}
+                        )}
 
                       <div className="flex justify-between items-center mt-3">
                         <span className="text-xs text-slate-500 dark:text-slate-400">
