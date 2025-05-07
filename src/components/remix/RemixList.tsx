@@ -60,9 +60,25 @@ export const RemixList: React.FC<RemixListProps> = ({
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
             {remixes.map((remix) => {
-              const parentDetails = remix.parentId
-                ? parentIPDetails[remix.parentId]
-                : null;
+              const parentDetails =
+                remix.parentId && remix.parentId !== '0'
+                  ? parentIPDetails[remix.parentId]
+                  : null;
+
+              const originalTitle =
+                parentDetails?.title || remix.parentTitle || 'Unknown Original';
+
+              const originalCreator = parentDetails?.owner
+                ? `${parentDetails.owner.substring(
+                    0,
+                    6
+                  )}...${parentDetails.owner.substring(
+                    parentDetails.owner.length - 4
+                  )}`
+                : remix.parentCreator || 'Unknown';
+
+              const royaltyRate =
+                parentDetails?.royaltyPercentage || remix.royaltyRate || 0;
 
               return (
                 <tr
@@ -76,21 +92,9 @@ export const RemixList: React.FC<RemixListProps> = ({
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <div className="font-medium">
-                      {parentDetails?.title ||
-                        remix.originalTitle ||
-                        remix.parentTitle}
-                    </div>
+                    <div className="font-medium">{originalTitle}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
-                      By:{' '}
-                      {parentDetails?.owner
-                        ? `${parentDetails.owner.substring(
-                            0,
-                            6
-                          )}...${parentDetails.owner.substring(
-                            parentDetails.owner.length - 4
-                          )}`
-                        : remix.originalCreator || remix.parentCreator}
+                      By: {originalCreator}
                     </div>
                     {remix.parentId &&
                       remix.parentId !== '0' &&
@@ -104,9 +108,7 @@ export const RemixList: React.FC<RemixListProps> = ({
                       )}
                   </td>
                   <td className="px-4 py-4">
-                    <div className="font-medium">
-                      {parentDetails?.royaltyPercentage || remix.royaltyRate}%
-                    </div>
+                    <div className="font-medium">{royaltyRate}%</div>
                   </td>
                   <td className="px-4 py-4 text-right font-medium">
                     {remix.totalSales} ETH

@@ -119,25 +119,25 @@ export const RoyaltyManagement: React.FC = () => {
         // Extract the owner address, ensuring consistent format
         const ipOwnerAddress = ipData.owner ? ipData.owner.toLowerCase() : null;
 
-        // Check if this is an original IP (licenseopt = 0) or a remix (licenseopt = 3 or 4)
-        const licenseType = Number(ipData.licenseopt || ipData[5] || 0);
-
-        // Only fetch royalty info for original IPs
-        if (licenseType === 0 || licenseType === 1 || licenseType === 2) {
+        // Check royalty for ALL IPs, not just originals
+        try {
           const [pending, claimed] = await contract.getRoyalty(BigInt(tokenId));
-
-          const isOwner =
-            account &&
-            ipOwnerAddress &&
-            ipOwnerAddress === account.toLowerCase();
 
           console.log(`Royalty for token #${tokenId}:`, {
             pending: ethers.formatEther(pending),
             claimed: ethers.formatEther(claimed),
             owner: ipOwnerAddress,
             currentAccount: account?.toLowerCase(),
-            isOwner: isOwner,
+            isOwner:
+              account &&
+              ipOwnerAddress &&
+              ipOwnerAddress === account.toLowerCase(),
           });
+
+          const isOwner =
+            account &&
+            ipOwnerAddress &&
+            ipOwnerAddress === account.toLowerCase();
 
           // DEVELOPMENT MODE: Allow viewing royalties even if not owner
           const isDevelopmentMode = true; // Set to false in production
@@ -152,27 +152,12 @@ export const RoyaltyManagement: React.FC = () => {
                 isYourIP: isOwner, // Track whether this is actually your IP
               },
             }));
-
-            if (isOwner) {
-              console.log(
-                `Updated royalty info for token #${tokenId} (you own this IP)`
-              );
-            } else {
-              console.log(
-                `Updated royalty info for token #${tokenId} (development mode - NOT your IP)`
-              );
-            }
-          } else {
-            console.log(
-              `Skipped updating royalty for token #${tokenId} (not your IP)`
-            );
           }
+        } catch (error) {
+          console.error(`Error fetching royalty for token #${tokenId}:`, error);
         }
       } catch (error) {
-        console.error(
-          `Error fetching royalty info for token #${tokenId}:`,
-          error
-        );
+        console.error(`Error fetching IP data for token #${tokenId}:`, error);
       }
     });
   };
@@ -208,6 +193,19 @@ export const RoyaltyManagement: React.FC = () => {
   useEffect(() => {
     if (isConnected) {
       handleTabChange(activeTab);
+
+      // Specifically check token ID 3 for royalties
+      fetchRoyaltyInfo('3');
+
+      // Check localStorage for recent deposits
+      const lastUpdatedParentId = localStorage.getItem('lastUpdatedParentId');
+      if (lastUpdatedParentId) {
+        console.log(
+          `Checking royalties for recently updated parentId: ${lastUpdatedParentId}`
+        );
+        fetchRoyaltyInfo(lastUpdatedParentId);
+        localStorage.removeItem('lastUpdatedParentId');
+      }
     }
   }, [isConnected]);
 

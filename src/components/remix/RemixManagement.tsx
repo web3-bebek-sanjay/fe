@@ -65,17 +65,53 @@ export const RemixManagement: React.FC = () => {
   const fetchParentIPDetails = async () => {
     if (!myRemixes || myRemixes.length === 0) return;
 
+    console.log(
+      'Starting fetchParentIPDetails with myRemixes length:',
+      myRemixes.length
+    );
+
     const uniqueParentIds: string[] = [];
-    myRemixes.forEach((remix) => {
-      if (remix.parentId && remix.parentId.toString() !== '0') {
-        const parentId = remix.parentId.toString();
-        if (!uniqueParentIds.includes(parentId)) {
-          uniqueParentIds.push(parentId);
-        }
+    myRemixes.forEach((remix, index) => {
+      // Handle different possible structures
+      let parentId;
+
+      // Check if this is a RemixInfo structure with direct parentId property
+      if (remix.parentId !== undefined) {
+        parentId = remix.parentId.toString();
+        console.log(
+          `Found parentId directly from RemixInfo at index ${index}:`,
+          parentId
+        );
+      } else if (remix.ip && remix.ip.parentId !== undefined) {
+        // Some contract implementations might nest it under ip
+        parentId = remix.ip.parentId.toString();
+        console.log(
+          `Found parentId from remix.ip.parentId at index ${index}:`,
+          parentId
+        );
+      } else {
+        // Handle nested Proxy structure
+        const remixData = remix.ip || remix[0] || remix;
+        parentId = remixData[6] ? remixData[6].toString() : '0';
+        console.log(
+          `Extracted parentId from array index 6 at index ${index}:`,
+          parentId
+        );
+      }
+
+      console.log(`Final parent ID for remix ${index}:`, parentId);
+
+      if (parentId && parentId !== '0' && !uniqueParentIds.includes(parentId)) {
+        uniqueParentIds.push(parentId);
       }
     });
 
+    console.log('Unique parent IPs to fetch:', uniqueParentIds);
+
     if (uniqueParentIds.length === 0) {
+      console.log(
+        'No parent IPs to fetch - either all remixes have parentId=0 or no valid parentIds found'
+      );
       setIsLoading(false);
       return;
     }
@@ -84,9 +120,26 @@ export const RemixManagement: React.FC = () => {
 
     for (const parentId of uniqueParentIds) {
       try {
+        console.log(`Fetching details for parent IP ${parentId}`);
         const details = await getIPDetails(parentId);
+        console.log(`Raw parent IP #${parentId} details:`, details);
+
         if (details) {
-          parentDetails[parentId] = details;
+          // Transform the contract data into a more usable format
+          const formattedDetails = {
+            title: details.title || details[1] || 'Unknown Title',
+            owner: details.owner || details[0] || 'Unknown Owner',
+            royaltyPercentage:
+              details.royaltyPercentage ||
+              (details[5] ? Number(details[5]) : 0),
+            description: details.description || details[2] || '',
+            fileUpload: details.fileUpload || details[4] || '',
+          };
+          parentDetails[parentId] = formattedDetails;
+          console.log(
+            `Formatted details for parent IP ${parentId}:`,
+            formattedDetails
+          );
         }
       } catch (error) {
         console.error(
@@ -96,6 +149,7 @@ export const RemixManagement: React.FC = () => {
       }
     }
 
+    console.log('Final parent details object:', parentDetails);
     setParentIPDetails(parentDetails);
     setIsLoading(false);
   };
@@ -106,7 +160,7 @@ export const RemixManagement: React.FC = () => {
       headerGetterContract(async (contract) => {
         try {
           const result = await contract.getIP(BigInt(tokenId));
-          console.log(`Parent IP #${tokenId} details:`, result);
+          console.log(`Raw parent IP #${tokenId} details:`, result);
           resolve(result);
         } catch (error) {
           console.error(`Error fetching IP #${tokenId}:`, error);
@@ -118,18 +172,59 @@ export const RemixManagement: React.FC = () => {
 
   // Transform blockchain remix data to component format
   const transformRemixData = () => {
-    const formattedRemixes = myRemixes.map((remix, index) => {
-      // Extract data from blockchain format
-      const parentId = remix.parentId ? remix.parentId.toString() : '0';
+    // Custom replacer function to handle BigInt serialization
+    const replacer = (key, value) => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      return value;
+    };
 
-      // For older versions of the data structure
-      const title = remix.title || remix.ip?.title || `Remix ${index + 1}`;
+    console.log('Raw myRemixes data structure:', myRemixes);
+
+    const formattedRemixes = myRemixes.map((remix, index) => {
+      console.log(`Examining remix at index ${index}:`, remix);
+
+      // Check if this is a RemixInfo structure with ip and parentId fields
+      const isRemixInfo =
+        remix.ip !== undefined && remix.parentId !== undefined;
+      console.log(`Is this a RemixInfo structure? ${isRemixInfo}`);
+
+      // Get the correct data structure
+      let remixData, parentId;
+
+      if (isRemixInfo) {
+        // It's a RemixInfo structure from the contract
+        remixData = remix.ip;
+        parentId = remix.parentId.toString();
+        console.log(`Using RemixInfo structure. ParentId: ${parentId}`);
+      } else {
+        // It's a different structure, try to extract data
+        remixData = remix[0] || remix;
+        parentId = remixData[6] ? remixData[6].toString() : '0';
+        console.log(`Using array structure. ParentId: ${parentId}`);
+      }
+
+      // Extract other properties
+      const title = remixData.title || remixData[1] || `Remix ${index + 1}`;
       const description =
-        remix.description || remix.ip?.description || 'No description';
+        remixData.description || remixData[2] || 'No description';
       const tokenId =
-        remix.tokenId?.toString() ||
-        remix.ip?.tokenId?.toString() ||
-        `${index}`;
+        remixData.tokenId ||
+        (remixData[3] ? remixData[3].toString() : `${index}`);
+      const coverImage = remixData.fileUpload || remixData[4] || '';
+      const royaltyRate =
+        remixData.royaltyPercentage ||
+        (remixData[5] ? Number(remixData[5]) : 0);
+
+      console.log('Extracted remix data:', {
+        parentId,
+        title,
+        tokenId,
+        royaltyRate,
+        description,
+        coverImage,
+      });
 
       // Create a Remix object
       return {
@@ -138,17 +233,15 @@ export const RemixManagement: React.FC = () => {
         parentId: parentId,
         title: title,
         description: description,
-        parentTitle: remix.parentTitle || 'Unknown Original',
-        parentCreator: remix.parentOwner || 'Unknown',
-        royaltyRate: Number(
-          remix.royaltyPercentage || remix.ip?.royaltyPercentage || 0
-        ),
+        parentTitle: 'Unknown Original',
+        parentCreator: 'Unknown',
+        royaltyRate: royaltyRate,
         status: 'active',
         createdAt: new Date(),
         totalSales: '0',
         totalRoyaltiesPaid: '0',
         deposits: [],
-        coverImage: remix.fileUpload || remix.ip?.fileUpload || '',
+        coverImage: coverImage,
       } as Remix;
     });
 
@@ -255,6 +348,23 @@ export const RemixManagement: React.FC = () => {
       // Close the modal after successful deposit
       setShowDepositModal(false);
       setSelectedRemix(null);
+
+      // IMPORTANT: Force refresh of royalty data in RoyaltyManagement component
+      // This needs to be added to your WalletContext to be accessible
+      if (typeof window !== 'undefined') {
+        // Dispatch a custom event that RoyaltyManagement can listen for
+        const event = new CustomEvent('royaltyUpdated', {
+          detail: { parentId: tokenIdToUse, amount },
+        });
+        window.dispatchEvent(event);
+
+        // Or set a flag in localStorage that RoyaltyManagement can check
+        localStorage.setItem('royaltyUpdated', 'true');
+        localStorage.setItem('lastUpdatedParentId', tokenIdToUse);
+      }
+
+      // If you have access to a global state manager like Redux or Context
+      // you could update a state variable there instead
     } catch (error) {
       console.error('Failed to deposit royalty:', error);
       // Could add error handling UI here
