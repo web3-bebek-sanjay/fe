@@ -329,23 +329,76 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           parentIPId: ipParentIPId,
         });
 
-        // Ensure valid BigInt conversions
-        console.log('BigInt conversions:', {
-          category: BigInt(ipCategory),
-        });
+        // Validate parent IP ID
+        if (!ipParentIPId) {
+          throw new Error('Parent IP ID is required for remixing');
+        }
 
+        // Ensure valid BigInt conversions
+        let categoryBigInt;
+        let parentIPIdBigInt;
+
+        try {
+          categoryBigInt = BigInt(ipCategory);
+          parentIPIdBigInt = BigInt(ipParentIPId);
+
+          console.log('BigInt conversions:', {
+            category: categoryBigInt,
+            parentIPId: parentIPIdBigInt,
+          });
+        } catch (error) {
+          console.error('Error converting to BigInt:', error);
+          throw new Error('Invalid number format for category or parentIPId');
+        }
+
+        // Validate parent IP exists before remixing
+        try {
+          const parentIP = await contract.getIP(parentIPIdBigInt);
+          console.log(`Verified parent IP #${ipParentIPId} exists:`, parentIP);
+        } catch (error) {
+          console.error(`Error verifying parent IP #${ipParentIPId}:`, error);
+          throw new Error(
+            `Parent IP #${ipParentIPId} not found or inaccessible`
+          );
+        }
+
+        // Call the remixIP function with validated BigInt parameters
         const tx = await contract.remixIP(
           ipTitle,
           ipDescription,
-          BigInt(ipCategory),
+          categoryBigInt,
           ipFileUpload,
-          ipParentIPId ? BigInt(ipParentIPId) : undefined,
+          parentIPIdBigInt,
           { ...txConfig, gasLimit: 3_000_000 }
         );
 
         const receipt = await tx.wait();
+        console.log('Remix registration receipt:', receipt);
+
+        // Log the token ID that was assigned to this remix
+        if (receipt && receipt.events) {
+          const transferEvents = receipt.events.filter(
+            (event: any) => event.event === 'Transfer'
+          );
+
+          if (transferEvents.length > 0) {
+            const transferEvent = transferEvents[0];
+            const newTokenId = transferEvent.args[2]; // TokenId is typically the third argument
+            console.log(`New remix assigned token ID: ${newTokenId}`);
+
+            // Store the relationship for debugging
+            console.log(
+              `Parent-child relationship established: Parent #${ipParentIPId} -> Child #${newTokenId}`
+            );
+
+            // Optionally update state with the new token ID
+            setTokenId(newTokenId.toString());
+          }
+        }
+
         alert('Remix successfully registered!');
       } catch (error: any) {
+        console.error('Failed to register remix:', error);
         alert('Failed to register remix. Please try again.');
       }
     });
@@ -815,39 +868,200 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   // Claim royalties for a specific token ID
   const handleClaimRoyalty = async (tokenId: string) => {
-    if (!account || !tokenId) return;
+    if (!account) {
+      alert('Wallet not connected. Please connect your wallet first.');
+      return;
+    }
+
+    if (!tokenId) {
+      alert(
+        'No token ID provided. Please select a specific IP to claim royalties from.'
+      );
+      return;
+    }
+
+    console.log(`Starting royalty claim process for token #${tokenId}`);
 
     await headerGetterContract(async (contract: Contract) => {
       try {
-        console.log(`Claiming royalty for token ID ${tokenId}`);
+        // For token #0 (central pool), handle differently than specific tokens
+        if (tokenId === '0') {
+          console.log('Claiming from central royalty pool (token #0)');
 
-        // First, check the pending royalty amount
+          // First check if there are royalties to claim in the central pool
+          const [pending, claimed] = await contract.getRoyalty(BigInt(0));
+
+          console.log(
+            `Central pool royalties: ${ethers.formatEther(
+              pending
+            )} ETH pending, ${ethers.formatEther(claimed)} ETH claimed`
+          );
+
+          if (pending.toString() === '0') {
+            alert('No royalties available to claim from the central pool.');
+            return;
+          }
+
+          // Execute the claim transaction directly on token #0
+          const tx = await contract.claimRoyalty(BigInt(0), {
+            ...txConfig,
+            gasLimit: 3000000,
+          });
+
+          const receipt = await tx.wait();
+          console.log(
+            `Successfully claimed royalties from central pool:`,
+            receipt
+          );
+
+          alert(
+            `Successfully claimed ${ethers.formatEther(
+              pending
+            )} ETH from the central royalty pool.`
+          );
+
+          // Notify listeners about the update
+          const royaltyUpdateEvent = new CustomEvent('royaltyUpdated', {
+            detail: { parentId: '0', amount: ethers.formatEther(pending) },
+          });
+          window.dispatchEvent(royaltyUpdateEvent);
+          localStorage.setItem('royaltyUpdated', 'true');
+          localStorage.setItem('lastUpdatedParentId', '0');
+
+          return;
+        }
+
+        // Handle specific token IDs
+        console.log(`Checking royalties for specific token #${tokenId}`);
+
+        // First, check the pending royalty amount for the specific token
         const [pending, claimed] = await contract.getRoyalty(BigInt(tokenId));
         console.log(
-          `Pending royalty: ${ethers.formatEther(
+          `Pending royalty for token #${tokenId}: ${ethers.formatEther(
             pending
           )} ETH, Previously claimed: ${ethers.formatEther(claimed)} ETH`
         );
 
-        if (pending.toString() === '0') {
-          alert('No royalties available to claim for this IP');
+        // Also check token #0 for accumulated royalties
+        let globalPending = BigInt(0);
+        let globalClaimed = BigInt(0);
+        try {
+          [globalPending, globalClaimed] = await contract.getRoyalty(BigInt(0));
+          console.log(
+            `Global pending royalty (token #0): ${ethers.formatEther(
+              globalPending
+            )} ETH, Previously claimed: ${ethers.formatEther(
+              globalClaimed
+            )} ETH`
+          );
+        } catch (error) {
+          console.warn('Failed to check global royalties:', error);
+        }
+
+        // Check if there are any royalties to claim
+        if (pending.toString() === '0' && globalPending.toString() === '0') {
+          alert(
+            `No royalties available to claim for IP #${tokenId} or in the central pool.`
+          );
           return;
         }
 
-        // Execute the claim transaction
-        const tx = await contract.claimRoyalty(BigInt(tokenId), {
-          ...txConfig,
-          gasLimit: 3000000,
-        });
+        // If the specific token has royalties, claim from it
+        if (pending.toString() !== '0') {
+          console.log(`Claiming royalties directly from token #${tokenId}`);
+          const tx = await contract.claimRoyalty(BigInt(tokenId), {
+            ...txConfig,
+            gasLimit: 3000000,
+          });
 
-        const receipt = await tx.wait();
-        console.log('Royalty claim transaction confirmed:', receipt);
-        alert(
-          `Successfully claimed ${ethers.formatEther(pending)} ETH in royalties`
+          const receipt = await tx.wait();
+          console.log(
+            `Royalty claim transaction for token #${tokenId} confirmed:`,
+            receipt
+          );
+
+          alert(
+            `Successfully claimed ${ethers.formatEther(
+              pending
+            )} ETH in royalties from IP #${tokenId}`
+          );
+        }
+        // Otherwise, if there are global royalties, claim from token #0
+        else if (globalPending.toString() !== '0') {
+          console.log(
+            `Redirecting claim to central pool (token #0) since token #${tokenId} has no royalties`
+          );
+
+          const tx = await contract.claimRoyalty(BigInt(0), {
+            ...txConfig,
+            gasLimit: 3000000,
+          });
+
+          const receipt = await tx.wait();
+          console.log(
+            `Royalty claim transaction for central pool confirmed:`,
+            receipt
+          );
+
+          alert(
+            `Successfully claimed ${ethers.formatEther(
+              globalPending
+            )} ETH in royalties from the central pool.`
+          );
+        }
+
+        // Dispatch an event to notify about royalty updates for both tokens
+        const royaltyUpdateEvent = new CustomEvent('royaltyUpdated', {
+          detail: {
+            parentId: tokenId,
+            amount:
+              pending.toString() !== '0'
+                ? ethers.formatEther(pending)
+                : ethers.formatEther(globalPending),
+          },
+        });
+        window.dispatchEvent(royaltyUpdateEvent);
+
+        // Also set localStorage flags for components that might not be mounted yet
+        localStorage.setItem('royaltyUpdated', 'true');
+        localStorage.setItem(
+          'lastUpdatedParentId',
+          pending.toString() !== '0' ? tokenId : '0'
         );
-      } catch (error) {
-        console.error('Error claiming royalty:', error);
-        alert('Failed to claim royalty. Please try again.');
+
+        // Refresh both specific and global royalty info
+        try {
+          await getRoyaltyInfo(tokenId);
+          if (tokenId !== '0') {
+            await getRoyaltyInfo('0');
+          }
+        } catch (refreshError) {
+          console.warn(
+            'Failed to refresh royalty info after claiming:',
+            refreshError
+          );
+        }
+      } catch (error: any) {
+        console.error(`Error claiming royalty for token #${tokenId}:`, error);
+
+        // More detailed error handling
+        if (error.message) {
+          if (error.message.includes('user rejected')) {
+            alert('Transaction was rejected by the user.');
+          } else if (error.message.includes('insufficient funds')) {
+            alert(
+              'Insufficient funds in your wallet to complete this transaction.'
+            );
+          } else if (error.message.includes('execution reverted')) {
+            alert(
+              'Contract execution reverted. This may happen if you are not authorized to claim royalties for this token.'
+            );
+          } else {
+            alert(`Failed to claim royalty: ${error.message}`);
+          }
+        } else {
+          alert('Failed to claim royalty. Please try again.');
+        }
       }
     });
   };
@@ -862,11 +1076,20 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       `Starting deposit process for remix #${remixTokenId} with amount ${amount} ETH`
     );
 
-    // Add this explicit conversion and validation
+    // Add explicit conversion and validation
     let tokenIdBigInt;
     try {
       tokenIdBigInt = BigInt(remixTokenId);
       console.log(`Converted remixTokenId to BigInt: ${tokenIdBigInt}`);
+
+      // Validate the token ID - must be > 0 for the contract check to work
+      if (tokenIdBigInt <= BigInt(0)) {
+        console.error(
+          'Token ID must be greater than 0 to satisfy contract requirements'
+        );
+        alert('Invalid token ID. Token IDs must be greater than 0.');
+        return;
+      }
     } catch (e) {
       console.error('Error converting remixTokenId to BigInt:', e);
       alert(`Invalid remix token ID: ${remixTokenId}`);
@@ -875,6 +1098,31 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
     await headerGetterContract(async (contract: Contract) => {
       try {
+        // Check if the parent ID exists and is valid
+        let parentId;
+        try {
+          parentId = await contract.parentIds(tokenIdBigInt);
+          console.log(`Remix #${remixTokenId} has parent ID: ${parentId}`);
+
+          // Make sure it meets the contract requirement: parentId < remixTokenId
+          if (parentId >= tokenIdBigInt) {
+            console.error(
+              `Contract requires parentId < remixTokenId, but ${parentId} >= ${tokenIdBigInt}`
+            );
+            alert(
+              'Invalid parent-child relationship. The parent ID must be less than the remix ID.'
+            );
+            return;
+          }
+        } catch (error) {
+          console.error(
+            `Error checking parentId for token #${remixTokenId}:`,
+            error
+          );
+          // Continue anyway, contract will validate
+        }
+
+        // Allow deposits for any tokenId > 0
         const weiAmount = ethers.parseEther(amount);
         console.log(
           `Depositing ${amount} ETH (${weiAmount} wei) as royalty payment for remix #${remixTokenId}`
@@ -893,6 +1141,25 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         alert(
           `Successfully deposited ${amount} ETH as royalty for remix #${remixTokenId}`
         );
+
+        // Update localStorage flags for components to detect the royalty update
+        localStorage.setItem('royaltyUpdated', 'true');
+        localStorage.setItem('lastUpdatedParentId', remixTokenId);
+
+        // Refresh royalty info
+        // First get the parent ID to refresh its royalty info
+        try {
+          const parentId = await contract.parentIds(tokenIdBigInt);
+          await getRoyaltyInfo(parentId.toString());
+
+          // Also refresh token #0 which might be accumulating all royalties
+          await getRoyaltyInfo('0');
+        } catch (refreshError) {
+          console.warn(
+            'Failed to refresh royalty info after deposit:',
+            refreshError
+          );
+        }
       } catch (error: any) {
         console.error('Error depositing royalty:', error);
 
@@ -911,7 +1178,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             );
           } else if (error.message.includes('execution reverted')) {
             alert(
-              'Contract execution reverted. This may happen if the token ID is invalid or you cannot deposit for this remix.'
+              'Contract execution reverted. This may happen if the remixTokenId does not satisfy the contract requirement: parentId < remixTokenId.'
             );
           } else {
             alert(`Failed to deposit royalty: ${error.message}`);
@@ -920,6 +1187,28 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           alert('Failed to deposit royalty. Please try again.');
         }
       }
+    });
+  };
+
+  // Add a new helper function to get royalty info
+  const getRoyaltyInfo = async (tokenId: string): Promise<[string, string]> => {
+    return new Promise((resolve, reject) => {
+      headerGetterContract(async (contract: Contract) => {
+        try {
+          const [pending, claimed] = await contract.getRoyalty(BigInt(tokenId));
+          console.log(`getRoyaltyInfo for token #${tokenId}:`, {
+            pending: ethers.formatEther(pending),
+            claimed: ethers.formatEther(claimed),
+          });
+          resolve([ethers.formatEther(pending), ethers.formatEther(claimed)]);
+        } catch (error) {
+          console.error(
+            `Error fetching royalty info for token #${tokenId}:`,
+            error
+          );
+          reject(error);
+        }
+      });
     });
   };
 

@@ -12,6 +12,7 @@ import {
   Edit3Icon,
   MoreHorizontalIcon,
   DollarSignIcon,
+  InfoIcon,
 } from 'lucide-react';
 import { useWallet } from '@/context/WalletContext';
 import { ethers, Contract } from 'ethers';
@@ -44,6 +45,178 @@ interface OwnedIP {
   tokenId?: string;
   createdAt: string;
 }
+
+// Add a RoyaltyClaimCard component before the RoyaltyManagement component
+const RoyaltyClaimCard = ({
+  royaltyInfo,
+  onClaimRoyalty,
+  tokenId,
+  isLoading,
+}: {
+  royaltyInfo: { pending: string; claimed: string };
+  onClaimRoyalty: (tokenId: string) => Promise<void>;
+  tokenId: string;
+  isLoading: boolean;
+}) => {
+  const pendingAmount = Number(royaltyInfo.pending);
+
+  if (pendingAmount <= 0) {
+    return null;
+  }
+
+  return (
+    <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-700 rounded-lg mb-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-medium text-green-700 dark:text-green-400">
+            {pendingAmount > 0
+              ? 'Royalties Available!'
+              : 'No Royalties Available'}
+          </h3>
+          <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+            You have{' '}
+            <span className="font-bold">{royaltyInfo.pending} ETH</span> in
+            royalties ready to claim
+            {tokenId !== '0' ? ` from IP #${tokenId}` : ''}
+          </p>
+        </div>
+        {pendingAmount > 0 && (
+          <button
+            onClick={() => onClaimRoyalty(tokenId)}
+            disabled={isLoading}
+            className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white 
+              ${isLoading ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'}`}
+          >
+            {isLoading ? (
+              <>
+                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Claiming...
+              </>
+            ) : (
+              <>
+                <DollarSignIcon size={14} className="mr-1" />
+                Claim {royaltyInfo.pending} ETH
+              </>
+            )}
+          </button>
+        )}
+      </div>
+      <div className="mt-2 pt-2 border-t border-green-100 dark:border-green-800">
+        <p className="text-xs text-green-600 dark:text-green-500">
+          Previously claimed: {royaltyInfo.claimed} ETH
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// Update the RoyaltySummary component to handle token #0 correctly
+const RoyaltySummary = ({
+  royaltyInfo,
+  onClaimRoyalty,
+  isLoading,
+}: {
+  royaltyInfo: {
+    [key: string]: {
+      pending: string;
+      claimed: string;
+      isOriginalIP?: boolean;
+      isYourIP?: boolean;
+    };
+  };
+  onClaimRoyalty: (tokenId: string) => Promise<void>;
+  isLoading: boolean;
+}) => {
+  // If token #0 has royalties, present it as a single card
+  const globalRoyalty = royaltyInfo['0'];
+  if (globalRoyalty && Number(globalRoyalty.pending) > 0) {
+    console.log('Found global royalties in token #0:', globalRoyalty.pending);
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 mb-6">
+        <h3 className="text-lg font-semibold mb-3">Claimable Royalties</h3>
+        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-700 rounded-lg mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-green-700 dark:text-green-400">
+                Central Royalty Pool
+              </h3>
+              <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                You have{' '}
+                <span className="font-bold">{globalRoyalty.pending} ETH</span>{' '}
+                in accumulated royalties ready to claim
+              </p>
+            </div>
+            <button
+              onClick={() => onClaimRoyalty('0')}
+              disabled={isLoading}
+              className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white 
+                ${
+                  isLoading ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'
+                }`}
+            >
+              {isLoading ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Claiming...
+                </>
+              ) : (
+                <>
+                  <DollarSignIcon size={14} className="mr-1" />
+                  Claim All Royalties
+                </>
+              )}
+            </button>
+          </div>
+          <div className="mt-2 pt-2 border-t border-green-100 dark:border-green-800">
+            <p className="text-xs text-green-600 dark:text-green-500">
+              Previously claimed: {globalRoyalty.claimed} ETH
+            </p>
+          </div>
+        </div>
+        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md text-sm text-blue-600 dark:text-blue-400">
+          <InfoIcon className="inline-block h-4 w-4 mr-1" />
+          All your royalties are collected in a central pool. Use the "Claim All
+          Royalties" button above to claim them with one transaction.
+        </div>
+      </div>
+    );
+  }
+
+  // Rest of the component remains the same
+  // Get all keys where pending royalties exist and isYourIP is true
+  const claimableRoyalties = Object.entries(royaltyInfo)
+    .filter(
+      ([tokenId, info]) =>
+        tokenId !== '0' && // Skip token #0 as we've handled it above
+        Number(info.pending) > 0 &&
+        info.isYourIP &&
+        tokenId !== undefined &&
+        tokenId !== null &&
+        tokenId !== ''
+    )
+    .sort((a, b) => Number(b[1].pending) - Number(a[1].pending)); // Sort by highest pending first
+
+  if (claimableRoyalties.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 mb-6">
+      <h3 className="text-lg font-semibold mb-3">Claimable Royalties</h3>
+      <div className="space-y-3">
+        {claimableRoyalties.map(([tokenId, info]) => (
+          <RoyaltyClaimCard
+            key={`royalty-${tokenId}`}
+            royaltyInfo={info}
+            onClaimRoyalty={onClaimRoyalty}
+            tokenId={tokenId}
+            isLoading={isLoading}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export const RoyaltyManagement: React.FC = () => {
   const {
@@ -91,6 +264,42 @@ export const RoyaltyManagement: React.FC = () => {
   const [parentIPDetails, setParentIPDetails] = useState<{
     [key: string]: any;
   }>({});
+
+  // Add this function to get the correct royalty amount
+  const getRoyaltyAmount = (
+    royaltyInfo: {
+      [key: string]: {
+        pending: string;
+        claimed: string;
+        isOriginalIP?: boolean;
+        isYourIP?: boolean;
+      };
+    },
+    tokenId: string
+  ): { pending: string; claimed: string } => {
+    // Always check token #0 for royalties as it appears to be the global accumulator
+    const globalRoyalty = royaltyInfo['0'] || { pending: '0', claimed: '0' };
+
+    // Also check the specific token ID
+    const specificRoyalty = royaltyInfo[tokenId] || {
+      pending: '0',
+      claimed: '0',
+    };
+
+    // If token #0 has royalties but the specific token doesn't, use the global amount
+    // This is likely the case based on the smart contract design
+    if (
+      Number(globalRoyalty.pending) > 0 &&
+      Number(specificRoyalty.pending) === 0
+    ) {
+      console.log(
+        `Using global royalty from token #0 for token #${tokenId}: ${globalRoyalty.pending} ETH`
+      );
+      return globalRoyalty;
+    }
+
+    return specificRoyalty;
+  };
 
   // Handle tab change and fetch data based on the selected tab
   const handleTabChange = async (tabType: string) => {
@@ -182,16 +391,24 @@ export const RoyaltyManagement: React.FC = () => {
 
     try {
       await headerGetterContract(async (contract) => {
-        // First, check all your token IDs
+        console.log('Fetching all IPs and royalties data...');
+
+        // 1. Get all token IDs owned by the account
         const balance = await contract.balanceOf(account);
         console.log(`Account has ${balance} tokens`);
 
-        // Loop through each token owned by the account
+        // Create a mapping of token IDs to their actual token IDs
+        const tokenMapping: { [key: number]: string } = {};
+
+        // 2. Loop through each token owned by the account
         for (let i = 0; i < Number(balance); i++) {
           try {
             // Get the tokenId at index i for this owner
             const tokenId = await contract.ownerToTokenIds(account, i);
             console.log(`Found tokenId: ${tokenId}`);
+
+            // Store the mapping (index -> actual token ID)
+            tokenMapping[i] = tokenId.toString();
 
             // Get royalty info for this token
             await fetchRoyaltyInfo(tokenId.toString());
@@ -200,8 +417,68 @@ export const RoyaltyManagement: React.FC = () => {
           }
         }
 
-        // Additionally, check royalties for token #0 explicitly since it seems to be tracking royalties
-        // This might be a contract design where all royalties are centralized at token #0
+        // Store the token mapping in localStorage for use in the UI
+        localStorage.setItem('tokenMapping', JSON.stringify(tokenMapping));
+
+        // 3. Get all rentals from my IPs using getListRentFromMyIp
+        try {
+          console.log('Fetching rental data from my IPs...');
+          // Use the wallet context function to handle rentals
+          await handleGetRentalsFromMyIP();
+          setDataLoadStatus((prev) => ({ ...prev, rentals: true }));
+        } catch (error) {
+          console.error('Error fetching rentals from my IPs:', error);
+        }
+
+        // 4. Get all remixes of my IPs using getMyIPsRemix
+        try {
+          console.log('Fetching remixes of my IPs...');
+          const remixes = await contract.getMyIPsRemix(account);
+          console.log('Remixes of my IPs:', remixes);
+
+          // Process each remix to get its royalty info
+          for (const remix of remixes) {
+            if (remix && remix.parentId) {
+              const parentId = remix.parentId.toString();
+              console.log(`Found remix with parent ID: ${parentId}`);
+
+              // 5. Get royalty info for each parent ID
+              try {
+                const [pending, claimed] = await contract.getRoyalty(
+                  BigInt(parentId)
+                );
+                console.log(`Royalty for parent #${parentId}:`, {
+                  pending: ethers.formatEther(pending),
+                  claimed: ethers.formatEther(claimed),
+                });
+
+                // Update royalty info state
+                setRoyaltyInfo((prev) => ({
+                  ...prev,
+                  [parentId]: {
+                    pending: ethers.formatEther(pending),
+                    claimed: ethers.formatEther(claimed),
+                    isOriginalIP: true,
+                    isYourIP: true, // Since we're only looking at our IPs
+                  },
+                }));
+              } catch (royaltyError) {
+                console.error(
+                  `Error fetching royalty for parent #${parentId}:`,
+                  royaltyError
+                );
+              }
+            }
+          }
+
+          // Use the wallet context function to update remixes
+          await handleGetMyRemixes(true, remixes);
+          setDataLoadStatus((prev) => ({ ...prev, remixes: true }));
+        } catch (error) {
+          console.error('Error fetching my IP remixes:', error);
+        }
+
+        // 6. Additionally, check royalties for token #0 explicitly since it seems to be tracking royalties
         try {
           await fetchRoyaltyInfo('0');
           console.log('Explicitly checked royalties for token #0');
@@ -238,21 +515,51 @@ export const RoyaltyManagement: React.FC = () => {
     }
   };
 
-  // Update the onClaimRoyalty function to use the correct token ID
-  const onClaimRoyalty = async () => {
+  // Update the onClaimRoyalty function to always use the provided token ID
+  const onClaimRoyalty = async (specificTokenId: string) => {
     try {
+      if (!specificTokenId) {
+        console.error('No token ID specified for claiming royalties');
+        alert('Please select a specific IP to claim royalties from');
+        return;
+      }
+
+      // Get the royalty info for this token
+      const tokenRoyaltyInfo = royaltyInfo[specificTokenId];
+
+      if (!tokenRoyaltyInfo || Number(tokenRoyaltyInfo.pending) <= 0) {
+        alert(`No royalties available to claim for IP #${specificTokenId}`);
+        return;
+      }
+
+      // Show confirmation dialog with token ID and amount
+      const confirmed = window.confirm(
+        `Are you sure you want to claim ${tokenRoyaltyInfo.pending} ETH in royalties from IP #${specificTokenId}?`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
       setIsLoading(true);
-
-      // Use token ID 0 since that's where royalties appear to be accumulated
-      const tokenIdToUse = '0';
-
-      console.log(`Claiming royalty for token #${tokenIdToUse}`);
-      await handleClaimRoyalty(tokenIdToUse);
+      console.log(`Claiming royalty for token #${specificTokenId}`);
+      await handleClaimRoyalty(specificTokenId);
 
       // Refresh royalty info after claiming
-      await fetchRoyaltyInfo(tokenIdToUse);
+      await fetchRoyaltyInfo(specificTokenId);
+
+      // Always refresh global royalty info as well
+      if (specificTokenId !== '0') {
+        await fetchRoyaltyInfo('0');
+      }
+
+      // Refresh all royalty data after claiming
+      await fetchAllMyIPsAndRoyalties();
+
+      alert(`Successfully claimed royalties from IP #${specificTokenId}`);
     } catch (error) {
       console.error('Error claiming royalty:', error);
+      alert('Failed to claim royalty. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -264,15 +571,21 @@ export const RoyaltyManagement: React.FC = () => {
 
     const processed: OwnedIP[] = [];
 
+    // Get the token mapping from localStorage
+    const tokenMappingStr = localStorage.getItem('tokenMapping');
+    const tokenMapping: { [key: number]: string } = tokenMappingStr
+      ? JSON.parse(tokenMappingStr)
+      : {};
+
     // Process regular IPs
     if (myIPs && myIPs.length > 0) {
       myIPs.forEach((ip, index) => {
-        // Get the token ID from owner to token ID mapping
-        const tokenId = index.toString();
+        // Use the actual token ID from the mapping, or fall back to index
+        const tokenId = tokenMapping[index] || index.toString();
 
         processed.push({
           id: `regular-${index}`,
-          tokenId: tokenId,
+          tokenId: tokenId, // Use the actual token ID
           title: ip.title,
           category: getCategoryName(Number(ip.category)),
           type: getLicenseType(Number(ip.licenseopt)),
@@ -289,13 +602,18 @@ export const RoyaltyManagement: React.FC = () => {
       });
     }
 
-    // Process remix IPs
+    // Process remix IPs (similar approach)
     if (myRemixes && myRemixes.length > 0) {
       myRemixes.forEach((remix, index) => {
         if (remix.ip) {
+          // Use the actual token ID from the remix object if available
+          const tokenId = remix.tokenId
+            ? remix.tokenId.toString()
+            : index.toString();
+
           processed.push({
             id: `remix-${index}`,
-            tokenId: index.toString(), // Placeholder
+            tokenId: tokenId,
             title: remix.ip.title || 'Untitled Remix',
             category: getCategoryName(Number(remix.ip.category)),
             type: 'remix',
@@ -541,7 +859,7 @@ export const RoyaltyManagement: React.FC = () => {
     fetchRoyaltyData();
   }, [remixes, isConnected]);
 
-  // Add this function to fetch parent royalty info
+  // Update this function to also update royaltyInfo state
   const fetchParentRoyaltyInfo = async (parentId: string) => {
     await headerGetterContract(async (contract) => {
       try {
@@ -549,14 +867,22 @@ export const RoyaltyManagement: React.FC = () => {
         const parentIP = await contract.getIP(BigInt(parentId));
         console.log(`Parent IP #${parentId} details:`, parentIP);
 
+        // Extract the owner address, ensuring consistent format
+        const ipOwnerAddress = parentIP.owner
+          ? parentIP.owner.toLowerCase()
+          : null;
+        const isOwner =
+          account && ipOwnerAddress && ipOwnerAddress === account.toLowerCase();
+
         // Get royalty info
         const [pending, claimed] = await contract.getRoyalty(BigInt(parentId));
         console.log(`Royalty for parent #${parentId}:`, {
           pending: ethers.formatEther(pending),
           claimed: ethers.formatEther(claimed),
+          isOwner,
         });
 
-        // Fix the type error by explicitly typing prev
+        // Update both state objects
         setParentIPDetails((prev: { [key: string]: any }) => ({
           ...prev,
           [parentId]: {
@@ -572,11 +898,80 @@ export const RoyaltyManagement: React.FC = () => {
             claimedRoyalty: ethers.formatEther(claimed),
           },
         }));
+
+        // Also update royaltyInfo state
+        setRoyaltyInfo((prev) => ({
+          ...prev,
+          [parentId]: {
+            pending: ethers.formatEther(pending),
+            claimed: ethers.formatEther(claimed),
+            isOriginalIP: true,
+            isYourIP: isOwner,
+          },
+        }));
       } catch (error) {
         console.error(`Error fetching parent IP #${parentId}:`, error);
       }
     });
   };
+
+  // Add this useEffect to listen for royalty updates
+  useEffect(() => {
+    // Function to handle royalty update events
+    const handleRoyaltyUpdate = (event: CustomEvent) => {
+      const { parentId, amount } = event.detail;
+      console.log(
+        `Royalty update detected for token #${parentId}, amount: ${amount}`
+      );
+
+      // Refresh royalty info for this specific token
+      if (parentId) {
+        fetchRoyaltyInfo(parentId);
+      }
+
+      // Also refresh token #0 as it might aggregate royalties
+      fetchRoyaltyInfo('0');
+    };
+
+    // Function to check localStorage for updates
+    const checkLocalStorage = () => {
+      const updated = localStorage.getItem('royaltyUpdated');
+      if (updated === 'true') {
+        const parentId = localStorage.getItem('lastUpdatedParentId');
+        console.log(
+          `Detected royalty update from localStorage for token #${parentId}`
+        );
+
+        if (parentId) {
+          fetchRoyaltyInfo(parentId);
+        }
+        fetchRoyaltyInfo('0');
+
+        // Clear the flags
+        localStorage.removeItem('royaltyUpdated');
+        localStorage.removeItem('lastUpdatedParentId');
+      }
+    };
+
+    // Add event listener
+    window.addEventListener(
+      'royaltyUpdated',
+      handleRoyaltyUpdate as EventListener
+    );
+
+    // Check localStorage immediately and set up interval
+    checkLocalStorage();
+    const interval = setInterval(checkLocalStorage, 2000);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener(
+        'royaltyUpdated',
+        handleRoyaltyUpdate as EventListener
+      );
+      clearInterval(interval);
+    };
+  }, [isConnected]);
 
   if (!isConnected) {
     return (
@@ -612,6 +1007,12 @@ export const RoyaltyManagement: React.FC = () => {
       )}
 
       <RoyaltyDashboard dateRange={dateRange} />
+
+      <RoyaltySummary
+        royaltyInfo={royaltyInfo}
+        onClaimRoyalty={onClaimRoyalty}
+        isLoading={isLoading}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
@@ -726,14 +1127,30 @@ export const RoyaltyManagement: React.FC = () => {
                   </button>
 
                   {/* Add royalty actions for this specific IP */}
-                  {royaltyInfo[selectedIP]?.pending &&
-                    Number(royaltyInfo[selectedIP].pending) > 0 && (
-                      <button
-                        onClick={() => onClaimRoyalty()}
-                        className="px-3 py-1 text-sm bg-green-500 text-white rounded-md hover:bg-green-600"
-                      >
-                        Claim {royaltyInfo[selectedIP].pending} ETH Royalties
-                      </button>
+                  {selectedIP &&
+                    Number(getRoyaltyAmount(royaltyInfo, selectedIP).pending) >
+                      0 && (
+                      <div className="mt-4 mb-6">
+                        <button
+                          onClick={() =>
+                            selectedIP
+                              ? onClaimRoyalty(selectedIP)
+                              : alert('No token ID available')
+                          }
+                          className="px-3 py-1 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 flex items-center"
+                        >
+                          <DollarSignIcon size={16} className="mr-2" />
+                          Claim{' '}
+                          {
+                            getRoyaltyAmount(royaltyInfo, selectedIP).pending
+                          }{' '}
+                          ETH Royalties
+                        </button>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Royalties are from remixes of your original IP. The
+                          amount shown may be accumulated in a central pool.
+                        </p>
+                      </div>
                     )}
                 </div>
 
@@ -744,7 +1161,10 @@ export const RoyaltyManagement: React.FC = () => {
                       Pending Royalties
                     </h3>
                     <p className="mt-1 text-xl font-bold">
-                      {royaltyInfo[selectedIP]?.pending || '0'} ETH
+                      {selectedIP
+                        ? getRoyaltyAmount(royaltyInfo, selectedIP).pending
+                        : '0'}{' '}
+                      ETH
                     </p>
                   </div>
                   <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-4">
@@ -752,7 +1172,10 @@ export const RoyaltyManagement: React.FC = () => {
                       Claimed Royalties
                     </h3>
                     <p className="mt-1 text-xl font-bold">
-                      {royaltyInfo[selectedIP]?.claimed || '0'} ETH
+                      {selectedIP
+                        ? getRoyaltyAmount(royaltyInfo, selectedIP).claimed
+                        : '0'}{' '}
+                      ETH
                     </p>
                   </div>
                 </div>
@@ -887,31 +1310,69 @@ export const RoyaltyManagement: React.FC = () => {
                       </div>
 
                       {/* Improved pending royalty display */}
-                      {ip.pendingRoyalty && Number(ip.pendingRoyalty) > 0 && (
+                      {(ip.pendingRoyalty && Number(ip.pendingRoyalty) > 0) ||
+                      (globalRoyaltyInfo &&
+                        Number(globalRoyaltyInfo.pending) > 0) ? (
                         <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
                           <div className="flex justify-between items-center">
                             <div>
                               <span className="text-xs font-medium text-green-700 dark:text-green-400">
-                                Available royalties: {globalRoyaltyInfo.pending}{' '}
-                                ETH
+                                {Number(ip.pendingRoyalty) > 0 ? (
+                                  <>
+                                    IP-specific royalties: {ip.pendingRoyalty}{' '}
+                                    ETH
+                                  </>
+                                ) : (
+                                  <>
+                                    Royalties in central pool:{' '}
+                                    {globalRoyaltyInfo.pending} ETH
+                                  </>
+                                )}
                               </span>
                               <p className="text-xs text-green-600 dark:text-green-500">
-                                Total claimed: {globalRoyaltyInfo.claimed} ETH
+                                Total claimed:{' '}
+                                {ip.tokenId
+                                  ? getRoyaltyAmount(royaltyInfo, ip.tokenId)
+                                      .claimed
+                                  : globalRoyaltyInfo.claimed}{' '}
+                                ETH
                               </p>
                             </div>
-                            {globalRoyaltyInfo.pending &&
-                              Number(globalRoyaltyInfo.pending) > 0 && (
-                                <button
-                                  onClick={() => onClaimRoyalty()}
-                                  className="text-xs bg-green-500 hover:bg-green-600 text-white rounded-md px-2 py-1 flex items-center"
-                                >
-                                  <DollarSignIcon size={12} className="mr-1" />{' '}
-                                  Claim
-                                </button>
-                              )}
+                            {(ip.tokenId &&
+                              Number(
+                                getRoyaltyAmount(royaltyInfo, ip.tokenId)
+                                  .pending
+                              ) > 0) ||
+                            (globalRoyaltyInfo &&
+                              Number(globalRoyaltyInfo.pending) > 0) ? (
+                              <button
+                                onClick={() => {
+                                  // If this IP has pending royalties, claim from it
+                                  if (
+                                    ip.tokenId &&
+                                    Number(
+                                      getRoyaltyAmount(royaltyInfo, ip.tokenId)
+                                        .pending
+                                    ) > 0
+                                  ) {
+                                    onClaimRoyalty(ip.tokenId);
+                                  }
+                                  // Otherwise claim from the central pool
+                                  else if (
+                                    Number(globalRoyaltyInfo.pending) > 0
+                                  ) {
+                                    onClaimRoyalty('0');
+                                  }
+                                }}
+                                className="text-xs bg-green-500 hover:bg-green-600 text-white rounded-md px-2 py-1 flex items-center"
+                              >
+                                <DollarSignIcon size={12} className="mr-1" />{' '}
+                                Claim
+                              </button>
+                            ) : null}
                           </div>
                         </div>
-                      )}
+                      ) : null}
 
                       <div className="flex justify-between items-center mt-3">
                         <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -928,19 +1389,47 @@ export const RoyaltyManagement: React.FC = () => {
                               View Remixes
                             </button>
                           )}
-                          {royaltyInfo[ip.tokenId || ''] &&
-                            Number(royaltyInfo[ip.tokenId || ''].pending) >
-                              0 && (
+
+                          {/* Only show IP-specific claim button if this IP actually has pending royalties */}
+                          {ip.tokenId &&
+                            Number(
+                              getRoyaltyAmount(royaltyInfo, ip.tokenId).pending
+                            ) > 0 && (
                               <button
-                                onClick={() => onClaimRoyalty()}
+                                onClick={() =>
+                                  ip.tokenId
+                                    ? onClaimRoyalty(ip.tokenId)
+                                    : alert('No token ID available')
+                                }
                                 className="p-1.5 text-sm flex items-center rounded-md bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
                                 title="Claim royalty"
                               >
                                 <DollarSignIcon size={14} className="mr-1" />
-                                Claim {
-                                  royaltyInfo[ip.tokenId || ''].pending
+                                Claim{' '}
+                                {
+                                  getRoyaltyAmount(royaltyInfo, ip.tokenId)
+                                    .pending
                                 }{' '}
                                 ETH
+                              </button>
+                            )}
+
+                          {/* Show central pool claim button if no IP-specific royalties but central pool has royalties */}
+                          {ip.tokenId &&
+                            Number(
+                              getRoyaltyAmount(royaltyInfo, ip.tokenId).pending
+                            ) <= 0 &&
+                            Number(globalRoyaltyInfo.pending) > 0 && (
+                              <button
+                                onClick={() => onClaimRoyalty('0')}
+                                className="p-1.5 text-sm flex items-center rounded-md bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
+                                title="Claim from central pool"
+                              >
+                                <DollarSignIcon size={14} className="mr-1" />
+                                Claim from Pool ({
+                                  globalRoyaltyInfo.pending
+                                }{' '}
+                                ETH)
                               </button>
                             )}
                         </div>

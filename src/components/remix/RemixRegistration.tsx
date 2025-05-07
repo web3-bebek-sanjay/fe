@@ -50,6 +50,9 @@ export const RemixRegistration: React.FC = () => {
   >('idle');
   const [remixOptions, setRemixOptions] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedParentTokenId, setSelectedParentTokenId] = useState<
+    string | null
+  >(null);
 
   // Fetch available IPs for remix when component mounts
   useEffect(() => {
@@ -61,19 +64,28 @@ export const RemixRegistration: React.FC = () => {
   // Transform IPs for remix into a usable format
   useEffect(() => {
     if (ipsAvailableForRemix && ipsAvailableForRemix.length > 0) {
-      const options = ipsAvailableForRemix.map((ip, index) => ({
-        value: index.toString(),
-        label: ip.title || `IP ${index}`,
-        owner: ip[0] || ip.owner, // Handle both array and object format
-        title: ip[1] || ip.title,
-        description: ip[2] || ip.description,
-        royaltyPercentage: ip[8]?.toString() || '20', // Extract royalty percentage from index 8
-      }));
+      const options = ipsAvailableForRemix.map((ip, index) => {
+        // First check if the data is in object format or array format
+        const title = ip.title || ip[1] || `IP ${index}`;
+        const owner = ip.owner || ip[0] || 'Unknown Owner';
+        const description = ip.description || ip[2] || '';
+        const royaltyPercentage =
+          ip.royaltyPercentage || (ip[8] ? ip[8].toString() : '20');
+
+        return {
+          value: index.toString(),
+          label: title,
+          owner: owner,
+          title: title,
+          description: description,
+          royaltyPercentage: royaltyPercentage,
+        };
+      });
       setRemixOptions(options);
     }
   }, [ipsAvailableForRemix]);
 
-  // Function to get the tokenId for a selected IP
+  // Improved function to get the tokenId for a selected IP
   const getTokenIdForSelectedIP = async (
     selectedIpIndex: number
   ): Promise<string | null> => {
@@ -82,55 +94,90 @@ export const RemixRegistration: React.FC = () => {
       selectedIpIndex < 0 ||
       selectedIpIndex >= ipsAvailableForRemix.length
     ) {
+      console.error('Invalid selection index or no IPs available for remix');
       return null;
     }
 
     const selectedIP = ipsAvailableForRemix[selectedIpIndex];
-    const ownerAddress = selectedIP[0] || selectedIP.owner;
+
+    // Extract owner address, handling both object and array format
+    const ownerAddress = selectedIP.owner || selectedIP[0];
 
     if (!ownerAddress) {
       console.error('Owner address not found for selected IP');
       return null;
     }
 
-    return new Promise<string | null>((resolve) => {
-      headerGetterContract(async (contract: Contract) => {
-        try {
-          console.log(`Getting tokenId for IP owned by ${ownerAddress}`);
+    try {
+      // Return a Promise that resolves with the tokenId
+      return new Promise<string | null>((resolve) => {
+        headerGetterContract(async (contract: Contract) => {
+          try {
+            console.log(`Getting tokenId for IP owned by ${ownerAddress}`);
 
-          // Get how many tokens this owner has
-          const ownerBalance = await contract.balanceOf(ownerAddress);
-          console.log(`Owner has ${ownerBalance} tokens`);
+            // Get how many tokens this owner has
+            const ownerBalance = await contract.balanceOf(ownerAddress);
+            console.log(`Owner has ${ownerBalance} tokens`);
 
-          // Loop through all tokens of this owner to find the matching one
-          for (let i = 0; i < Number(ownerBalance); i++) {
-            const tokenId = await contract.ownerToTokenIds(ownerAddress, i);
-            console.log(`Checking token #${tokenId}`);
-
-            // Get full IP details for this token
-            const ipDetails = await contract.getIP(tokenId);
-
-            // Check if this is the IP we're looking for by matching title and description
-            if (
-              (ipDetails.title === selectedIP.title ||
-                ipDetails.title === selectedIP[1]) &&
-              (ipDetails.description === selectedIP.description ||
-                ipDetails.description === selectedIP[2])
-            ) {
-              console.log(`Found matching token ID: ${tokenId}`);
-              resolve(tokenId.toString());
+            if (Number(ownerBalance) === 0) {
+              console.error('Owner has no tokens');
+              resolve(null);
               return;
             }
-          }
 
-          console.error('No matching token ID found');
-          resolve(null);
-        } catch (error) {
-          console.error('Error getting parent token ID:', error);
-          resolve(null);
-        }
+            // Loop through all tokens of this owner to find the matching one
+            for (let i = 0; i < Number(ownerBalance); i++) {
+              try {
+                const tokenId = await contract.ownerToTokenIds(ownerAddress, i);
+                console.log(`Checking token #${tokenId}`);
+
+                // Get full IP details for this token
+                const ipDetails = await contract.getIP(tokenId);
+
+                // Check title and description match
+                const ipTitle = ipDetails.title || ipDetails[1];
+                const ipDescription = ipDetails.description || ipDetails[2];
+                const selectedTitle = selectedIP.title || selectedIP[1];
+                const selectedDescription =
+                  selectedIP.description || selectedIP[2];
+
+                console.log(`Comparing: 
+                  Token title: ${ipTitle} vs Selected title: ${selectedTitle}
+                  Token desc: ${ipDescription} vs Selected desc: ${selectedDescription}`);
+
+                // Check if this is the IP we're looking for by matching title and description
+                if (
+                  ipTitle === selectedTitle &&
+                  ipDescription === selectedDescription
+                ) {
+                  console.log(`Found matching token ID: ${tokenId}`);
+
+                  // Store the parentTokenId in state for later use
+                  setSelectedParentTokenId(tokenId.toString());
+
+                  resolve(tokenId.toString());
+                  return;
+                }
+              } catch (err) {
+                console.error(`Error checking token ${i}:`, err);
+                // Continue to next token
+              }
+            }
+
+            console.error(
+              'No matching token ID found after checking all tokens'
+            );
+            resolve(null);
+          } catch (error) {
+            console.error('Error getting parent token ID:', error);
+            resolve(null);
+          }
+        });
       });
-    });
+    } catch (error) {
+      console.error('Failed to get token ID:', error);
+      return null;
+    }
   };
 
   // Update the handleSubmit function
@@ -174,22 +221,16 @@ export const RemixRegistration: React.FC = () => {
       // Convert category to uint using the utility function
       const categoryValue = getCategoryValue(formData.category);
 
-      // Generate a placeholder file reference instead of using the actual file
-      const filePlaceholder =
-        "https://picsum.photos/seed/${id || 'default'}/200";
-
-      // Trim the file data if it's too large
-      const truncatedFileData =
-        filePlaceholder.length > 1000
-          ? filePlaceholder.substring(0, 1000) + '...'
-          : filePlaceholder;
+      // Generate a simple file reference instead of placeholder with random values
+      // to ensure consistency in file references
+      const fileReference = `remix-${parentTokenId}-${Date.now()}`;
 
       // Prepare data for the contract - aligned with remixIP function parameters
       const ipData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: categoryValue.toString(),
-        fileUpload: truncatedFileData,
+        fileUpload: fileReference,
         parentIPId: parentTokenId, // Use the resolved token ID
       };
 
@@ -280,6 +321,14 @@ export const RemixRegistration: React.FC = () => {
                 isRemix={true}
                 selectedLicenseOptions={['remix']}
               />
+              {selectedParentTokenId && (
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                  <p className="text-sm text-blue-700 dark:text-blue-400">
+                    Selected Parent IP Token ID:{' '}
+                    <span className="font-bold">{selectedParentTokenId}</span>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </>

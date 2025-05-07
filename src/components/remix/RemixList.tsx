@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Remix } from './types';
-import { Eye, ArrowUpRight, Banknote } from 'lucide-react';
+import { Eye, ArrowUpRight, Banknote, Shield, GitBranch } from 'lucide-react';
 
 interface RemixListProps {
   remixes: Remix[];
@@ -39,7 +39,10 @@ export const RemixList: React.FC<RemixListProps> = ({
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-700/50">
               <th className="px-4 py-3 text-left text-sm font-medium text-slate-500 dark:text-slate-400">
-                Remix Title
+                IP Title
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-slate-500 dark:text-slate-400">
+                Type
               </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-slate-500 dark:text-slate-400">
                 Original IP
@@ -60,10 +63,9 @@ export const RemixList: React.FC<RemixListProps> = ({
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
             {remixes.map((remix) => {
-              const parentDetails =
-                remix.parentId && remix.parentId !== '0'
-                  ? parentIPDetails[remix.parentId]
-                  : null;
+              const isOriginal = false;
+
+              const parentDetails = parentIPDetails[remix.parentId];
 
               const originalTitle =
                 parentDetails?.title || remix.parentTitle || 'Unknown Original';
@@ -77,8 +79,9 @@ export const RemixList: React.FC<RemixListProps> = ({
                   )}`
                 : remix.parentCreator || 'Unknown';
 
-              const royaltyRate =
-                parentDetails?.royaltyPercentage || remix.royaltyRate || 0;
+              const royaltyRate = `${
+                parentDetails?.royaltyPercentage || remix.royaltyRate || 0
+              }%`;
 
               return (
                 <tr
@@ -92,23 +95,27 @@ export const RemixList: React.FC<RemixListProps> = ({
                     </div>
                   </td>
                   <td className="px-4 py-4">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                      <GitBranch className="w-3 h-3 mr-1" />
+                      Remix
+                    </span>
+                  </td>
+                  <td className="px-4 py-4">
                     <div className="font-medium">{originalTitle}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       By: {originalCreator}
                     </div>
-                    {remix.parentId &&
-                      remix.parentId !== '0' &&
-                      onViewParentDetails && (
-                        <button
-                          onClick={() => onViewParentDetails(remix.parentId)}
-                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 flex items-center"
-                        >
-                          <Eye className="h-3 w-3 mr-1" /> View Original
-                        </button>
-                      )}
+                    {remix.parentId && onViewParentDetails && (
+                      <button
+                        onClick={() => onViewParentDetails(remix.parentId)}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 flex items-center"
+                      >
+                        <Eye className="h-3 w-3 mr-1" /> View Original
+                      </button>
+                    )}
                   </td>
                   <td className="px-4 py-4">
-                    <div className="font-medium">{royaltyRate}%</div>
+                    <div className="font-medium">{royaltyRate}</div>
                   </td>
                   <td className="px-4 py-4 text-right font-medium">
                     {remix.totalSales} ETH

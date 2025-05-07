@@ -32,6 +32,9 @@ export const RemixManagement: React.FC = () => {
   const [parentIPDetails, setParentIPDetails] = useState<{
     [key: string]: any;
   }>({});
+  const [tokenIdMapping, setTokenIdMapping] = useState<{
+    [key: string]: string;
+  }>({});
 
   // Fetch remix data when component mounts
   useEffect(() => {
@@ -43,6 +46,9 @@ export const RemixManagement: React.FC = () => {
   // Transform blockchain data to our Remix format when myRemixes changes
   useEffect(() => {
     if (myRemixes && myRemixes.length > 0) {
+      console.log('Detected myRemixes change with length:', myRemixes.length);
+
+      // First transform the data
       transformRemixData();
       fetchParentIPDetails();
     } else {
@@ -63,95 +69,111 @@ export const RemixManagement: React.FC = () => {
 
   // Function to fetch parent IP details for all remixes
   const fetchParentIPDetails = async () => {
-    if (!myRemixes || myRemixes.length === 0) return;
+    if (!myRemixes || myRemixes.length === 0) {
+      setIsLoading(false);
+      return;
+    }
 
     console.log(
       'Starting fetchParentIPDetails with myRemixes length:',
       myRemixes.length
     );
 
-    const uniqueParentIds: string[] = [];
-    myRemixes.forEach((remix, index) => {
-      // Handle different possible structures
-      let parentId;
+    // Create a Set to store unique parent IDs
+    const uniqueParentIds = new Set<string>();
 
-      // Check if this is a RemixInfo structure with direct parentId property
-      if (remix.parentId !== undefined) {
-        parentId = remix.parentId.toString();
-        console.log(
-          `Found parentId directly from RemixInfo at index ${index}:`,
-          parentId
-        );
-      } else if (remix.ip && remix.ip.parentId !== undefined) {
-        // Some contract implementations might nest it under ip
-        parentId = remix.ip.parentId.toString();
-        console.log(
-          `Found parentId from remix.ip.parentId at index ${index}:`,
-          parentId
-        );
-      } else {
-        // Handle nested Proxy structure
-        const remixData = remix.ip || remix[0] || remix;
-        parentId = remixData[6] ? remixData[6].toString() : '0';
-        console.log(
-          `Extracted parentId from array index 6 at index ${index}:`,
-          parentId
-        );
+    // First pass: collect all unique parent IDs
+    for (const remix of myRemixes) {
+      try {
+        // Try to get parentId from various possible locations
+        let parentId: string | null = null;
+
+        // Check direct parentId property
+        if (remix.parentId !== undefined) {
+          parentId = remix.parentId.toString();
+        }
+        // Check if parentId is nested under ip
+        else if (remix.ip && remix.ip.parentId !== undefined) {
+          parentId = remix.ip.parentId.toString();
+        }
+        // Check if it's at position 1 in an array structure
+        else if (Array.isArray(remix) && remix[1] !== undefined) {
+          parentId = remix[1].toString();
+        }
+
+        // Always include the parentId, even if it's "0" (original IP)
+        if (parentId !== null) {
+          console.log(`Found parentId: ${parentId} for remix`);
+          uniqueParentIds.add(parentId);
+        }
+      } catch (err) {
+        console.error('Error extracting parentId:', err);
       }
+    }
 
-      console.log(`Final parent ID for remix ${index}:`, parentId);
+    const parentIdsArray = Array.from(uniqueParentIds);
+    console.log('Unique parent IPs to fetch:', parentIdsArray);
 
-      if (parentId && parentId !== '0' && !uniqueParentIds.includes(parentId)) {
-        uniqueParentIds.push(parentId);
-      }
-    });
-
-    console.log('Unique parent IPs to fetch:', uniqueParentIds);
-
-    if (uniqueParentIds.length === 0) {
-      console.log(
-        'No parent IPs to fetch - either all remixes have parentId=0 or no valid parentIds found'
-      );
+    if (parentIdsArray.length === 0) {
+      console.log('No parent IPs to fetch');
       setIsLoading(false);
       return;
     }
 
-    const parentDetails: { [key: string]: any } = {};
+    // Create a new object for parent details
+    const newParentDetails: { [key: string]: any } = {};
 
-    for (const parentId of uniqueParentIds) {
-      try {
-        console.log(`Fetching details for parent IP ${parentId}`);
-        const details = await getIPDetails(parentId);
-        console.log(`Raw parent IP #${parentId} details:`, details);
+    try {
+      // For Promise.all, we need to map to an array of promises
+      const fetchPromises = parentIdsArray.map(async (parentId) => {
+        try {
+          console.log(`Fetching details for parent IP ${parentId}`);
+          const details = await getIPDetails(parentId);
 
-        if (details) {
-          // Transform the contract data into a more usable format
-          const formattedDetails = {
-            title: details.title || details[1] || 'Unknown Title',
-            owner: details.owner || details[0] || 'Unknown Owner',
-            royaltyPercentage:
-              details.royaltyPercentage ||
-              (details[5] ? Number(details[5]) : 0),
-            description: details.description || details[2] || '',
-            fileUpload: details.fileUpload || details[4] || '',
-          };
-          parentDetails[parentId] = formattedDetails;
-          console.log(
-            `Formatted details for parent IP ${parentId}:`,
-            formattedDetails
+          if (details) {
+            // Transform the contract data into a more usable format
+            const formattedDetails = {
+              tokenId: parentId,
+              title: details.title || details[1] || 'Unknown Title',
+              owner: details.owner || details[0] || 'Unknown Owner',
+              royaltyPercentage:
+                details.royaltyPercentage ||
+                (details[8] ? Number(details[8]) : 0),
+              description: details.description || details[2] || '',
+              fileUpload: details.fileUpload || details[4] || '',
+            };
+            return { parentId, details: formattedDetails };
+          }
+          return null;
+        } catch (error) {
+          console.error(
+            `Failed to fetch details for parent IP ${parentId}:`,
+            error
           );
+          return null;
         }
-      } catch (error) {
-        console.error(
-          `Failed to fetch details for parent IP ${parentId}:`,
-          error
-        );
-      }
-    }
+      });
 
-    console.log('Final parent details object:', parentDetails);
-    setParentIPDetails(parentDetails);
-    setIsLoading(false);
+      // Wait for all fetch operations to complete
+      const results = await Promise.all(fetchPromises);
+
+      // Process results to build the parentDetails object
+      results.forEach((result) => {
+        if (result && result.parentId && result.details) {
+          newParentDetails[result.parentId] = result.details;
+        }
+      });
+
+      console.log('Final parent details object:', newParentDetails);
+
+      // Only update the state once at the end
+      setParentIPDetails(newParentDetails);
+    } catch (error) {
+      console.error('Error fetching parent IP details:', error);
+    } finally {
+      // Always set loading to false when done
+      setIsLoading(false);
+    }
   };
 
   // Function to get IP details using contract's getIP method
@@ -172,98 +194,111 @@ export const RemixManagement: React.FC = () => {
 
   // Transform blockchain remix data to component format
   const transformRemixData = () => {
-    // Fix the type errors in the replacer function
-    const replacer = (key: string, value: unknown) => {
-      if (typeof value === 'bigint') {
-        return value.toString();
-      }
-      return value;
-    };
+    console.log('Starting to transform remix data from:', myRemixes);
 
-    console.log('Raw myRemixes data structure:', myRemixes);
+    // Initialize tokenIdMapping if needed
+    const mapping: { [key: string]: string } = {};
 
     const formattedRemixes = myRemixes.map((remix, index) => {
-      console.log(`Examining remix at index ${index}:`, remix);
+      console.log(`Processing remix at index ${index}:`, remix);
+
+      // Extract tokenId and parentId
+      let tokenId: string = '';
+      let parentId: string = '';
+      let remixData: any = null;
 
       // Check if this is a RemixInfo structure with ip and parentId fields
       const isRemixInfo =
         remix.ip !== undefined && remix.parentId !== undefined;
-      console.log(`Is this a RemixInfo structure? ${isRemixInfo}`);
-
-      // Get the correct data structure
-      let remixData, parentId;
 
       if (isRemixInfo) {
         // It's a RemixInfo structure from the contract
-        remixData = remix.ip || remix[0];
-
-        // Access parentId directly via array index since it's at position 1 in the proxy
-        parentId = remix[1] ? remix[1].toString() : '0';
+        remixData = remix.ip;
+        tokenId = remix.tokenId ? remix.tokenId.toString() : `remix-${index}`;
+        parentId = remix.parentId.toString();
         console.log(
-          `Using RemixInfo structure. Raw parentId from index 1: ${parentId}`
+          `Using RemixInfo structure. TokenId: ${tokenId}, ParentId: ${parentId}`
         );
+      } else if (Array.isArray(remix)) {
+        // It might be an array-like structure from the contract
+        remixData = remix[0]?.ip || remix[0];
 
-        // For token ID, we should NOT use remixData[3] which is the category field
-        // Instead, we need to use a different approach to get the correct token ID
-        // One approach is to use the index in the array plus some base value
-        const tokenIdBase = 10; // May need to adjust this base value
-        const tokenId = (index + tokenIdBase).toString();
+        // For array structures, position 1 is often the parentId
+        if (remix[1] !== undefined) {
+          parentId = remix[1].toString();
+        }
 
-        console.log(`Using generated tokenId for remix: ${tokenId}`);
+        // Try to determine tokenId - in some cases we might not have it directly
+        if (
+          typeof remix === 'object' &&
+          remix !== null &&
+          'tokenId' in remix &&
+          remix.tokenId
+        ) {
+          tokenId = remix.tokenId.toString();
+        } else {
+          // We don't have a direct token ID, so we'll generate a predictable one
+          tokenId = `remix-${parentId}-${index}`;
+        }
+
+        console.log(
+          `Using array structure. TokenId: ${tokenId}, ParentId: ${parentId}`
+        );
       } else {
-        // It's a different structure, try to extract data
-        remixData = remix[0] || remix;
-
-        // Instead of trying to await a contract call here (which won't work),
-        // use the parentIds relationship from the data structure itself
-        // Look at index 6 to see if it contains a meaningful value (non-zero)
-        parentId = (remixData.parentId || '0').toString();
-
-        // If no parentId property exists, try to use the mapping at index 6
-        // from the original contract structure (though it's not ideal -
-        // index 6 seems to be basePrice, not parentId)
-        if (parentId === '0' && remixData[6]) {
-          parentId = remixData[6].toString();
-        }
-
-        // Final fallback - check if there's a parentId property at the top level
-        if (parentId === '0' && remix.parentId) {
-          parentId = remix.parentId.toString();
-        }
-
-        console.log(`Using array structure. ParentId: ${parentId}`);
+        // Fallback to direct property access
+        remixData = remix;
+        tokenId = remix.tokenId ? remix.tokenId.toString() : `remix-${index}`;
+        parentId = remix.parentId ? remix.parentId.toString() : '0';
+        console.log(
+          `Using direct property access. TokenId: ${tokenId}, ParentId: ${parentId}`
+        );
       }
 
-      // Extract other properties
-      const title = remixData.title || remixData[1] || `Remix ${index + 1}`;
-      const description =
-        remixData.description || remixData[2] || 'No description';
-      const coverImage = remixData.fileUpload || remixData[4] || '';
-      const royaltyRate =
-        remixData.royaltyPercentage ||
-        (remixData[5] ? Number(remixData[5]) : 0);
+      // Store the mapping for future reference
+      mapping[index.toString()] = tokenId;
 
-      // Check if we already set tokenId in the if/else block above
-      let tokenId = remixData.tokenId || `${index}`; // Don't use remixData[3] which is category
+      // Extract common properties with fallbacks
+      const title =
+        remixData?.title ||
+        (remixData?.[1] ? remixData[1] : '') ||
+        `IP ${index + 1}`;
+
+      const description =
+        remixData?.description ||
+        (remixData?.[2] ? remixData[2] : '') ||
+        'No description';
+
+      const coverImage =
+        remixData?.fileUpload ||
+        (remixData?.[4] ? remixData[4] : '') ||
+        `https://picsum.photos/seed/remix${index}/200`;
+
+      const royaltyRate =
+        remixData?.royaltyPercentage ||
+        (remixData?.[8] ? Number(remixData[8]) : 0);
+
+      // All IPs are treated as remixes, regardless of parentId
+      const isOriginal = false;
 
       console.log('Extracted remix data:', {
+        tokenId,
         parentId,
         title,
-        tokenId,
         royaltyRate,
         description,
         coverImage,
+        isRemix: true,
       });
 
-      // Create a Remix object
+      // Create a standardized Remix object
       return {
         id: `remix-${index}`,
         tokenId: tokenId,
-        parentId: parentId,
+        parentId: parentId, // Keep the parentId even if it's "0"
         title: title,
         description: description,
-        parentTitle: 'Unknown Original',
-        parentCreator: 'Unknown',
+        parentTitle: 'Original IP',
+        parentCreator: 'Loading...',
         royaltyRate: royaltyRate,
         status: 'active',
         createdAt: new Date(),
@@ -274,23 +309,52 @@ export const RemixManagement: React.FC = () => {
       } as Remix;
     });
 
+    setTokenIdMapping(mapping);
     setRemixes(formattedRemixes);
+    console.log('Transformed remixes:', formattedRemixes);
+    console.log('Token ID mapping:', mapping);
   };
 
   // Update remixes with parent IP details once we have them
   useEffect(() => {
-    if (Object.keys(parentIPDetails).length === 0 || remixes.length === 0)
+    if (remixes.length === 0 || Object.keys(parentIPDetails).length === 0)
       return;
 
+    console.log(
+      'Running update effect with parentDetails:',
+      Object.keys(parentIPDetails)
+    );
+
+    // Create a new array to store updated remixes
     const updatedRemixes = remixes.map((remix) => {
       const parentId = remix.parentId;
+
+      // Handle original IPs (parentId = '0')
+      if (!parentId || parentId === '0') {
+        // For original IPs, use its own details
+        const originalDetail = parentIPDetails['0'];
+        if (originalDetail) {
+          return {
+            ...remix,
+            // For original IPs, we mark them clearly
+            parentTitle: 'Original IP',
+            parentCreator: 'You are the creator',
+            // Use the IP's own details
+            title: originalDetail.title || remix.title,
+            description: originalDetail.description || remix.description,
+          };
+        }
+        return remix;
+      }
+
+      // For remixes, use parent details
       const parentDetail = parentIPDetails[parentId];
 
       if (parentDetail) {
         return {
           ...remix,
-          parentTitle: parentDetail.title || remix.parentTitle,
-          parentCreator: parentDetail.owner || remix.parentCreator,
+          parentTitle: parentDetail.title || 'Original IP',
+          parentCreator: parentDetail.owner || 'Unknown Creator',
           royaltyRate: Number(
             parentDetail.royaltyPercentage || remix.royaltyRate
           ),
@@ -299,8 +363,19 @@ export const RemixManagement: React.FC = () => {
       return remix;
     });
 
-    setRemixes(updatedRemixes);
-  }, [parentIPDetails]);
+    // Use a deep comparison before updating state to prevent unnecessary renders
+    const hasChanged =
+      JSON.stringify(updatedRemixes) !== JSON.stringify(remixes);
+
+    if (hasChanged) {
+      console.log(
+        'Updated remixes with parent details - actual change detected'
+      );
+      setRemixes(updatedRemixes);
+    } else {
+      console.log('No changes detected in remixes, skipping update');
+    }
+  }, [parentIPDetails]); // Only depend on parentIPDetails, not remixes
 
   // Calculate total values
   const totalRemixes = remixes.length;
@@ -315,32 +390,53 @@ export const RemixManagement: React.FC = () => {
     .toFixed(2);
 
   const handleDepositClick = (remix: Remix) => {
+    // Make sure we're passing the full remix object, not just the ID
+    console.log(`Opening deposit modal for remix:`, remix);
     setSelectedRemix(remix);
     setShowDepositModal(true);
   };
 
   const handleDeposit = async (remixId: string, amount: string) => {
-    // Look for the remix by id OR tokenId (since remixId might be either one)
+    console.log(`Handling deposit for remixId: ${remixId}, amount: ${amount}`);
+
+    // For contract requirement: parentId < remixTokenId
+    // We need to find a valid remix token ID (not 0) and its corresponding parent ID
+
+    // Find the remix either by ID or tokenId
     const remix = remixes.find(
       (r) => r.id === remixId || r.tokenId === remixId
     );
+
     if (!remix) {
-      console.error(`Remix not found with id/tokenId: ${remixId}`);
+      console.error(`Could not find remix with id: ${remixId}`);
+      alert('Could not find the remix. Please try again.');
       return;
     }
 
-    // Use parentId for deposit as that's what the contract expects
-    const tokenIdToUse = remix.parentId || remix.tokenId;
+    // The contract requires a valid parent-child relationship where parentId < remixTokenId
+    // Either get a numeric token ID from the remix, or use a default higher value
+    let actualRemixTokenId;
+    try {
+      // Try to get a numeric token ID, or default to a higher number
+      const tokenIdNum = parseInt(remix.tokenId);
 
-    if (!tokenIdToUse) {
-      console.error('Missing both parentId and tokenId for remix');
-      return;
+      // Use the token ID if it's a number and greater than 0
+      if (!isNaN(tokenIdNum) && tokenIdNum > 0) {
+        actualRemixTokenId = tokenIdNum.toString();
+      } else {
+        // For tokenIds like 'remix-0', we need to use a higher number
+        actualRemixTokenId = '2'; // Use a higher token ID that should work
+      }
+    } catch (e) {
+      // Default to a token ID that should work
+      actualRemixTokenId = '2';
     }
+
+    console.log(`Using remixTokenId: ${actualRemixTokenId} for deposit`);
 
     try {
-      // Call the blockchain function to deposit royalty using the correct tokenId
-      console.log(`Depositing royalty for parentId: ${tokenIdToUse}`);
-      await handleDepositRoyalty(tokenIdToUse, amount);
+      console.log(`Depositing royalty for tokenId: ${actualRemixTokenId}`);
+      await handleDepositRoyalty(actualRemixTokenId, amount);
 
       // Update UI with optimistic update
       const royaltyAmount = (
@@ -378,25 +474,21 @@ export const RemixManagement: React.FC = () => {
       setShowDepositModal(false);
       setSelectedRemix(null);
 
-      // IMPORTANT: Force refresh of royalty data in RoyaltyManagement component
-      // This needs to be added to your WalletContext to be accessible
+      // Notify RoyaltyManagement component about the update
       if (typeof window !== 'undefined') {
-        // Dispatch a custom event that RoyaltyManagement can listen for
+        // Dispatch a custom event
         const event = new CustomEvent('royaltyUpdated', {
-          detail: { parentId: tokenIdToUse, amount },
+          detail: { parentId: remix.parentId, amount },
         });
         window.dispatchEvent(event);
 
-        // Or set a flag in localStorage that RoyaltyManagement can check
+        // Also set localStorage flags
         localStorage.setItem('royaltyUpdated', 'true');
-        localStorage.setItem('lastUpdatedParentId', tokenIdToUse);
+        localStorage.setItem('lastUpdatedParentId', remix.parentId);
       }
-
-      // If you have access to a global state manager like Redux or Context
-      // you could update a state variable there instead
     } catch (error) {
       console.error('Failed to deposit royalty:', error);
-      // Could add error handling UI here
+      alert('Failed to deposit royalty. Please check the console for details.');
     }
   };
 

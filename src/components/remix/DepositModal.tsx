@@ -38,20 +38,10 @@ export const DepositModal: React.FC<DepositModalProps> = ({
       return;
     }
 
-    // Deep extract tokenId from potentially nested proxy objects
-    let remixTokenId = extractTokenId(remix, parentDetails);
+    // Get the parent ID - could be 0, which is valid
+    const parentId = remix.parentId;
 
-    // If no valid token ID was found, show error
-    if (!remixTokenId) {
-      setError('Could not determine the remix token ID. Please try again.');
-      console.error('Failed to extract token ID from:', {
-        remix,
-        parentDetails,
-      });
-      return;
-    }
-
-    console.log(`Using extracted remix token ID: ${remixTokenId}`);
+    console.log(`Using parent ID for royalty deposit: ${parentId}`);
 
     setError(null);
     setIsProcessing(true);
@@ -62,7 +52,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
 
       // Add an explanation about how the royalty is calculated
       const royaltyMessage = `You're reporting a total profit of ${amount} ETH.
-      Based on the royalty rate of ${royaltyRate}%, only ${royaltyAmount} ETH will be deducted from your wallet and sent to the original creator.`;
+      Based on the royalty rate of ${royaltyRate}%, ${royaltyAmount} ETH will be deducted from your wallet and sent to the original creator.`;
 
       if (!confirm(royaltyMessage)) {
         setIsProcessing(false);
@@ -72,11 +62,12 @@ export const DepositModal: React.FC<DepositModalProps> = ({
       // Debug the remix object to see what's available
       console.log('Remix object being used for deposit:', remix);
       console.log(
-        `Depositing royalty for remix #${remixTokenId} with total profit ${amount} ETH and actual payment ${royaltyAmount} ETH`
+        `Depositing royalty for parent IP #${parentId} with total profit ${amount} ETH and actual payment ${royaltyAmount} ETH`
       );
 
-      // Pass only the royalty amount to the onDeposit function
-      await onDeposit(remixTokenId.toString(), royaltyAmount);
+      // Pass the remix ID, not just the parentId, to ensure the component can find the remix object
+      // Use the remix.id value which is in the format "remix-X"
+      await onDeposit(remix.id, royaltyAmount);
       onClose(); // Close the modal on success
     } catch (error: any) {
       console.error('Error during deposit:', error);
@@ -110,99 +101,6 @@ export const DepositModal: React.FC<DepositModalProps> = ({
   const calculatedRoyalty = amount
     ? ((parseFloat(amount) * royaltyRate) / 100).toFixed(6)
     : '0';
-
-  // Add this helper function to extract the token ID from various object structures
-  const extractTokenId = (remix: any, parentDetails?: any): string | null => {
-    console.log('Extracting token ID from remix:', remix);
-
-    // 1. Try direct access (standard object format)
-    if (remix?.tokenId && remix.tokenId !== '0') {
-      console.log(`Found direct tokenId: ${remix.tokenId}`);
-      // If it has a prefix like "remix-", extract just the number
-      if (
-        typeof remix.tokenId === 'string' &&
-        remix.tokenId.includes('remix-')
-      ) {
-        return remix.parentId || parentDetails?.tokenId || '26'; // Return parent ID instead for remix
-      }
-      return remix.tokenId;
-    }
-
-    // 2. Try direct access with ID property
-    if (remix?.id && remix.id !== '0') {
-      console.log(`Found direct id: ${remix.id}`);
-      // If it has a prefix like "remix-", we should use the parentId instead
-      if (typeof remix.id === 'string' && remix.id.includes('remix-')) {
-        return remix.parentId || parentDetails?.tokenId || '26'; // Return parent ID instead for remix
-      }
-      return remix.id;
-    }
-
-    // 3. Try parent details if available
-    if (parentDetails?.tokenId && parentDetails.tokenId !== '0') {
-      console.log(`Found parentDetails tokenId: ${parentDetails.tokenId}`);
-      return parentDetails.tokenId;
-    }
-
-    // 4. Try parentId if available (most likely what we want for remix deposits)
-    if (remix?.parentId && remix.parentId !== '0') {
-      console.log(`Found parentId: ${remix.parentId}`);
-      return remix.parentId;
-    }
-
-    // Rest of the function remains the same...
-    // Check if it's a Proxy object with a nested structure
-    try {
-      if (remix && typeof remix === 'object' && remix[0]) {
-        // Check the second level
-        if (remix[0][1] && typeof remix[0][1] === 'bigint') {
-          console.log(
-            `Found tokenId in nested proxy at [0][1]: ${remix[0][1]}`
-          );
-          return remix[0][1].toString();
-        }
-
-        // Try to access the parentId at the second level
-        if (remix[0].parentId && typeof remix[0].parentId === 'bigint') {
-          console.log(`Found parentId in nested proxy: ${remix[0].parentId}`);
-          return remix[0].parentId.toString();
-        }
-
-        // Try another common pattern - second element might be the tokenId
-        if (remix[1] && typeof remix[1] === 'bigint') {
-          console.log(`Found tokenId at second position: ${remix[1]}`);
-          return remix[1].toString();
-        }
-      }
-
-      // 5. Look for specific structure based on your logs
-      if (remix && typeof remix === 'object' && 'length' in remix) {
-        for (let i = 0; i < remix.length; i++) {
-          // Check if any property might be a token ID (bigint)
-          if (typeof remix[i] === 'bigint' && remix[i] > 0) {
-            console.log(`Found potential tokenId at index ${i}: ${remix[i]}`);
-            return remix[i].toString();
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error while extracting token ID:', error);
-    }
-
-    // 6. Based on your specific log structure
-    try {
-      // From your logs, it looks like the parent ID is at 26n position
-      if (remix && remix[0] && remix[0][1] === BigInt(26)) {
-        console.log('Found parent ID 26 in the nested proxy structure');
-        return '26';
-      }
-    } catch (error) {
-      console.error('Error while checking specific structure:', error);
-    }
-
-    console.warn('Could not extract a valid token ID');
-    return null;
-  };
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -249,12 +147,18 @@ export const DepositModal: React.FC<DepositModalProps> = ({
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-slate-500 dark:text-slate-400">
+                Parent IP ID:
+              </span>
+              <span className="text-sm font-medium">
+                {remix.parentId || 'Unknown'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-500 dark:text-slate-400">
                 Original IP:
               </span>
               <span className="text-sm font-medium">
-                {parentDetails?.title ||
-                  remix.originalTitle ||
-                  remix.parentTitle}
+                {parentDetails?.title || remix.parentTitle}
               </span>
             </div>
             <div className="flex justify-between">
@@ -269,7 +173,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
                     )}...${parentDetails.owner.substring(
                       parentDetails.owner.length - 4
                     )}`
-                  : remix.originalCreator || remix.parentCreator}
+                  : remix.parentCreator}
               </span>
             </div>
             <div className="flex justify-between">
