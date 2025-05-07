@@ -787,24 +787,25 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
     await headerGetterContract(async (contract: Contract) => {
       try {
-        console.log(
-          `Fetching remixes of IP #${parentTokenId} for account:`,
-          account
-        );
-        const result = await contract.getMyIPsRemix(BigInt(parentTokenId));
-        console.log(
-          `Raw contract result for remixes of IP #${parentTokenId}:`,
-          result
+        console.log(`Fetching remixes of IP #${parentTokenId}`);
+
+        // Use getMyIPsRemix instead of the previous method
+        // This will get all remixes where the specified IP is the parent
+        const result = await contract.getMyIPsRemix(account);
+        console.log(`Raw contract result for remixes:`, result);
+
+        // Filter remixes to only include those with the specified parentId
+        const filteredRemixes = result.filter(
+          (remix: any) =>
+            remix.parentId && remix.parentId.toString() === parentTokenId
         );
 
-        // Store the result in state
-        setRemixesByParentIP(result);
+        console.log(
+          `Filtered ${filteredRemixes.length} remixes with parentId ${parentTokenId}`
+        );
 
-        if (result.length === 0) {
-          console.log(`No remixes found for IP #${parentTokenId}`);
-        } else {
-          console.log(`Found ${result.length} remixes of IP #${parentTokenId}`);
-        }
+        // Store the filtered result in state
+        setRemixesByParentIP(filteredRemixes);
       } catch (error) {
         console.error(`Error fetching remixes of IP #${parentTokenId}:`, error);
         alert('Failed to fetch remixes. Please try again.');

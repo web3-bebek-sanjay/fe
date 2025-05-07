@@ -136,14 +136,16 @@ export const RoyaltyManagement: React.FC = () => {
 
     await headerGetterContract(async (contract: Contract) => {
       try {
-        // First get the IP to determine if it's an original or remix
+        // First get the IP to determine ownership and details
         const ipData = await contract.getIP(BigInt(tokenId));
         console.log(`IP data for token #${tokenId}:`, ipData);
 
         // Extract the owner address, ensuring consistent format
         const ipOwnerAddress = ipData.owner ? ipData.owner.toLowerCase() : null;
+        const isOwner =
+          account && ipOwnerAddress && ipOwnerAddress === account.toLowerCase();
 
-        // Check royalty for ALL IPs, not just originals
+        // Check royalty information
         try {
           const [pending, claimed] = await contract.getRoyalty(BigInt(tokenId));
 
@@ -152,31 +154,19 @@ export const RoyaltyManagement: React.FC = () => {
             claimed: ethers.formatEther(claimed),
             owner: ipOwnerAddress,
             currentAccount: account?.toLowerCase(),
-            isOwner:
-              account &&
-              ipOwnerAddress &&
-              ipOwnerAddress === account.toLowerCase(),
+            isOwner,
           });
 
-          const isOwner =
-            account &&
-            ipOwnerAddress &&
-            ipOwnerAddress === account.toLowerCase();
-
-          // DEVELOPMENT MODE: Allow viewing royalties even if not owner
-          const isDevelopmentMode = true; // Set to false in production
-
-          if (isOwner || isDevelopmentMode) {
-            setRoyaltyInfo((prev) => ({
-              ...prev,
-              [tokenId]: {
-                pending: ethers.formatEther(pending),
-                claimed: ethers.formatEther(claimed),
-                isOriginalIP: true,
-                isYourIP: isOwner, // Track whether this is actually your IP
-              },
-            }));
-          }
+          // Store royalty info in state
+          setRoyaltyInfo((prev) => ({
+            ...prev,
+            [tokenId]: {
+              pending: ethers.formatEther(pending),
+              claimed: ethers.formatEther(claimed),
+              isOriginalIP: true,
+              isYourIP: isOwner,
+            },
+          }));
         } catch (error) {
           console.error(`Error fetching royalty for token #${tokenId}:`, error);
         }
@@ -186,25 +176,72 @@ export const RoyaltyManagement: React.FC = () => {
     });
   };
 
-  // Handle claiming royalty for an IP
-  const onClaimRoyalty = async (tokenId: string) => {
+  // Add this function to get all your IPs and their royalties
+  const fetchAllMyIPsAndRoyalties = async () => {
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
-      await handleClaimRoyalty(tokenId);
-      // Refresh royalty info after claiming
-      await fetchRoyaltyInfo(tokenId);
+      await headerGetterContract(async (contract: Contract) => {
+        // Get account balance (how many tokens you own)
+        const balance = await contract.balanceOf(account);
+        console.log(`Account has ${balance} tokens`);
+
+        // Loop through each token owned by the account
+        for (let i = 0; i < Number(balance); i++) {
+          try {
+            // Get the tokenId at index i for this owner
+            const tokenId = await contract.ownerToTokenIds(account, i);
+            console.log(`Found tokenId: ${tokenId}`);
+
+            // Get royalty info for this token
+            await fetchRoyaltyInfo(tokenId.toString());
+
+            // Check if this token has remixes using getMyIPsRemix
+            try {
+              const remixes = await contract.getMyIPsRemix(account);
+              const filteredRemixes = remixes.filter(
+                (remix: any) =>
+                  remix.parentId &&
+                  remix.parentId.toString() === tokenId.toString()
+              );
+
+              if (filteredRemixes.length > 0) {
+                console.log(
+                  `Token #${tokenId} has ${filteredRemixes.length} remixes`
+                );
+              }
+            } catch (error) {
+              console.error(
+                `Error checking remixes for token #${tokenId}:`,
+                error
+              );
+            }
+          } catch (error) {
+            console.error(`Error processing token at index ${i}:`, error);
+          }
+        }
+      });
     } catch (error) {
-      console.error('Error claiming royalty:', error);
+      console.error('Failed to fetch IPs and royalties:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Show remixes of a specific IP
+  // Update useEffect to call this function when the component mounts
+  useEffect(() => {
+    if (isConnected) {
+      fetchAllMyIPsAndRoyalties();
+    }
+  }, [isConnected]);
+
+  // Update the showRemixesForIP function to use the parent ID correctly
   const showRemixesForIP = async (tokenId: string) => {
     try {
       setIsLoading(true);
       setSelectedIP(tokenId);
+
+      // Call the updated function that uses getMyIPsRemix
       await handleGetRemixesOfMyIP(tokenId);
     } catch (error) {
       console.error('Error fetching remixes:', error);
@@ -213,25 +250,24 @@ export const RoyaltyManagement: React.FC = () => {
     }
   };
 
-  // Initial data load when component mounts
-  useEffect(() => {
-    if (isConnected) {
-      handleTabChange(activeTab);
+  // Update the onClaimRoyalty function to use the correct token ID
+  const onClaimRoyalty = async (tokenId: string) => {
+    try {
+      setIsLoading(true);
 
-      // Specifically check token ID 3 for royalties
-      fetchRoyaltyInfo('3');
+      console.log(`Claiming royalty for token #${tokenId}`);
 
-      // Check localStorage for recent deposits
-      const lastUpdatedParentId = localStorage.getItem('lastUpdatedParentId');
-      if (lastUpdatedParentId) {
-        console.log(
-          `Checking royalties for recently updated parentId: ${lastUpdatedParentId}`
-        );
-        fetchRoyaltyInfo(lastUpdatedParentId);
-        localStorage.removeItem('lastUpdatedParentId');
-      }
+      // Call the contract function to claim royalty
+      await handleClaimRoyalty(tokenId);
+
+      // Refresh royalty info after claiming
+      await fetchRoyaltyInfo(tokenId);
+    } catch (error) {
+      console.error('Error claiming royalty:', error);
+    } finally {
+      setIsLoading(false);
     }
-  }, [isConnected]);
+  };
 
   // Process contract data into the format needed for display
   useEffect(() => {
@@ -891,7 +927,7 @@ export const RoyaltyManagement: React.FC = () => {
 
                       <div className="flex justify-between items-center mt-3">
                         <span className="text-xs text-slate-500 dark:text-slate-400">
-                          Created {new Date(ip.createdAt).toLocaleDateString()}
+                          Token ID: {ip.tokenId}
                         </span>
                         <div className="flex gap-1">
                           {ip.tokenId && (
@@ -901,19 +937,24 @@ export const RoyaltyManagement: React.FC = () => {
                               title="View remixes"
                             >
                               <ExternalLinkIcon size={14} className="mr-1" />
-                              View{' '}
-                              {myRemixes.filter(
-                                (r) => r.parentId?.toString() === ip.tokenId
-                              ).length || '0'}{' '}
-                              Remixes
+                              View Remixes
                             </button>
                           )}
-                          <button className="p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
-                            <Edit3Icon size={16} />
-                          </button>
-                          <button className="p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
-                            <MoreHorizontalIcon size={16} />
-                          </button>
+                          {royaltyInfo[ip.tokenId || ''] &&
+                            Number(royaltyInfo[ip.tokenId || ''].pending) >
+                              0 && (
+                              <button
+                                onClick={() => onClaimRoyalty(ip.tokenId!)}
+                                className="p-1.5 text-sm flex items-center rounded-md bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
+                                title="Claim royalty"
+                              >
+                                <DollarSignIcon size={14} className="mr-1" />
+                                Claim {
+                                  royaltyInfo[ip.tokenId || ''].pending
+                                }{' '}
+                                ETH
+                              </button>
+                            )}
                         </div>
                       </div>
                     </div>
