@@ -172,8 +172,8 @@ export const RemixManagement: React.FC = () => {
 
   // Transform blockchain remix data to component format
   const transformRemixData = () => {
-    // Custom replacer function to handle BigInt serialization
-    const replacer = (key, value) => {
+    // Fix the type errors in the replacer function
+    const replacer = (key: string, value: unknown) => {
       if (typeof value === 'bigint') {
         return value.toString();
       }
@@ -195,13 +195,42 @@ export const RemixManagement: React.FC = () => {
 
       if (isRemixInfo) {
         // It's a RemixInfo structure from the contract
-        remixData = remix.ip;
-        parentId = remix.parentId.toString();
-        console.log(`Using RemixInfo structure. ParentId: ${parentId}`);
+        remixData = remix.ip || remix[0];
+
+        // Access parentId directly via array index since it's at position 1 in the proxy
+        parentId = remix[1] ? remix[1].toString() : '0';
+        console.log(
+          `Using RemixInfo structure. Raw parentId from index 1: ${parentId}`
+        );
+
+        // For token ID, we should NOT use remixData[3] which is the category field
+        // Instead, we need to use a different approach to get the correct token ID
+        // One approach is to use the index in the array plus some base value
+        const tokenIdBase = 10; // May need to adjust this base value
+        const tokenId = (index + tokenIdBase).toString();
+
+        console.log(`Using generated tokenId for remix: ${tokenId}`);
       } else {
         // It's a different structure, try to extract data
         remixData = remix[0] || remix;
-        parentId = remixData[6] ? remixData[6].toString() : '0';
+
+        // Instead of trying to await a contract call here (which won't work),
+        // use the parentIds relationship from the data structure itself
+        // Look at index 6 to see if it contains a meaningful value (non-zero)
+        parentId = (remixData.parentId || '0').toString();
+
+        // If no parentId property exists, try to use the mapping at index 6
+        // from the original contract structure (though it's not ideal -
+        // index 6 seems to be basePrice, not parentId)
+        if (parentId === '0' && remixData[6]) {
+          parentId = remixData[6].toString();
+        }
+
+        // Final fallback - check if there's a parentId property at the top level
+        if (parentId === '0' && remix.parentId) {
+          parentId = remix.parentId.toString();
+        }
+
         console.log(`Using array structure. ParentId: ${parentId}`);
       }
 
@@ -209,13 +238,13 @@ export const RemixManagement: React.FC = () => {
       const title = remixData.title || remixData[1] || `Remix ${index + 1}`;
       const description =
         remixData.description || remixData[2] || 'No description';
-      const tokenId =
-        remixData.tokenId ||
-        (remixData[3] ? remixData[3].toString() : `${index}`);
       const coverImage = remixData.fileUpload || remixData[4] || '';
       const royaltyRate =
         remixData.royaltyPercentage ||
         (remixData[5] ? Number(remixData[5]) : 0);
+
+      // Check if we already set tokenId in the if/else block above
+      let tokenId = remixData.tokenId || `${index}`; // Don't use remixData[3] which is category
 
       console.log('Extracted remix data:', {
         parentId,

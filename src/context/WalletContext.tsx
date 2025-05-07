@@ -1,6 +1,12 @@
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  ReactNode,
+  useEffect,
+} from 'react';
 import { Contract, ethers } from 'ethers';
 import { getContract } from '@/contracts/contract';
 
@@ -98,7 +104,10 @@ export interface WalletContextType {
   handleGetMyIPs: () => Promise<void>;
   handleGetOtherIPs: () => Promise<void>;
   handleGetIPsAvailableForRemix: () => Promise<void>;
-  handleGetMyRemixes: (forceRefresh?: boolean) => Promise<void>;
+  handleGetMyRemixes: (
+    forceRefresh?: boolean,
+    customRemixes?: any[]
+  ) => Promise<void>;
 
   // Additional royalty management functions
   handleGetRentalsFromMyIP: () => Promise<void>;
@@ -237,6 +246,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     title: string;
     description: string;
     category: string;
+    tag: string;
     fileUpload: string;
     licenseopt: number;
     basePrice: string;
@@ -695,7 +705,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const handleGetMyRemixes = async (forceRefresh = false) => {
+  const handleGetMyRemixes = async (
+    forceRefresh = false,
+    customRemixes?: any[]
+  ) => {
     if (!account) return;
 
     // Allow skipping the check if forceRefresh is true
@@ -705,6 +718,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setIsLoadingMyRemixes(true);
+
+    if (customRemixes && customRemixes.length > 0) {
+      // Use the custom remixes provided by the caller
+      setMyRemixes(customRemixes);
+      setMyRemixesLoaded(true);
+      setIsLoadingMyRemixes(false);
+      return;
+    }
 
     await headerGetterContract(async (contract: Contract) => {
       try {

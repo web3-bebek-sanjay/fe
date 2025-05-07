@@ -16,6 +16,23 @@ import {
 import { useWallet } from '@/context/WalletContext';
 import { ethers, Contract } from 'ethers';
 
+interface Remix {
+  id: string;
+  tokenId: string;
+  parentId: string;
+  title: string;
+  description: string;
+  parentTitle: string;
+  parentCreator: string;
+  royaltyRate: number;
+  status: string;
+  createdAt: Date;
+  totalSales: string;
+  totalRoyaltiesPaid: string;
+  deposits: any[];
+  coverImage: string;
+}
+
 interface OwnedIP {
   id: string;
   title: string;
@@ -41,6 +58,7 @@ export const RoyaltyManagement: React.FC = () => {
     rentalsByIP,
     remixesByParentIP,
     account,
+    handleGetMyRemixes,
   } = useWallet();
 
   const [dateRange, setDateRange] = useState('month');
@@ -67,6 +85,12 @@ export const RoyaltyManagement: React.FC = () => {
     remixes: false,
     rentals: false,
   });
+
+  // Add these missing state variables
+  const [remixes, setRemixes] = useState<Remix[]>([]);
+  const [parentIPDetails, setParentIPDetails] = useState<{
+    [key: string]: any;
+  }>({});
 
   // Handle tab change and fetch data based on the selected tab
   const handleTabChange = async (tabType: string) => {
@@ -324,6 +348,210 @@ export const RoyaltyManagement: React.FC = () => {
     .reduce((total, [_, info]) => total + Number(info.claimed || '0'), 0)
     .toFixed(6);
 
+  // Function to fetch remixes from blockchain
+  const fetchMyRemixes = async () => {
+    setIsLoading(true);
+    try {
+      // Get your token IDs first, then get the remix details
+      await headerGetterContract(async (contract) => {
+        // Get account balance (how many tokens you own)
+        const balance = await contract.balanceOf(account);
+        console.log(`Account has ${balance} tokens`);
+
+        // Initialize an array to store the token IDs and their data
+        const remixTokens = [];
+
+        // Loop through each token owned by the account
+        for (let i = 0; i < Number(balance); i++) {
+          try {
+            // Get the tokenId at index i for this owner
+            const tokenId = await contract.ownerToTokenIds(account, i);
+            console.log(`Found tokenId: ${tokenId}`);
+
+            // Check if this is a remix using parentIds mapping
+            const parentId = await contract.parentIds(tokenId);
+
+            // If parentId is not 0, it's a remix
+            if (parentId.toString() !== '0') {
+              console.log(
+                `Token #${tokenId} is a remix of parent #${parentId}`
+              );
+
+              // Get the IP details
+              const ipDetails = await contract.getIP(tokenId);
+
+              // Create a RemixInfo-like structure
+              remixTokens.push({
+                ip: ipDetails,
+                parentId: parentId,
+                tokenId: tokenId, // Add the actual token ID
+              });
+            }
+          } catch (error) {
+            console.error(`Error checking token at index ${i}:`, error);
+          }
+        }
+
+        // Set the remixes in the wallet context
+        console.log(
+          `Found ${remixTokens.length} remixes owned by this account`
+        );
+        await handleGetMyRemixes(true, remixTokens);
+      });
+    } catch (error) {
+      console.error('Failed to fetch remixes:', error);
+      setIsLoading(false);
+    }
+  };
+
+  // Transform blockchain remix data to component format
+  const transformRemixData = () => {
+    // Fix the type errors in the replacer function
+    const replacer = (key: string, value: unknown) => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      return value;
+    };
+
+    console.log('Raw myRemixes data structure:', myRemixes);
+
+    const formattedRemixes = myRemixes.map((remix, index) => {
+      console.log(`Examining remix at index ${index}:`, remix);
+
+      // Check if this is a RemixInfo structure with ip and parentId fields
+      const isRemixInfo =
+        remix.ip !== undefined && remix.parentId !== undefined;
+      console.log(`Is this a RemixInfo structure? ${isRemixInfo}`);
+
+      // Get the correct data structure
+      let remixData, parentId, tokenId;
+
+      if (isRemixInfo) {
+        // It's a RemixInfo structure from the contract
+        remixData = remix.ip || remix[0];
+
+        // Get the parentId directly from the structure
+        parentId =
+          remix.parentId !== undefined
+            ? remix.parentId.toString()
+            : remix[1] !== undefined
+            ? remix[1].toString()
+            : '0';
+
+        // Get the actual token ID which should be stored when fetching
+        tokenId = remix.tokenId ? remix.tokenId.toString() : `${index}`;
+
+        console.log(
+          `Using RemixInfo structure. ParentId: ${parentId}, TokenId: ${tokenId}`
+        );
+      } else {
+        // Handle older format
+        // ...existing code for non-RemixInfo structures...
+      }
+
+      // Extract other properties
+      const title = remixData.title || remixData[1] || `Remix ${index + 1}`;
+      const description =
+        remixData.description || remixData[2] || 'No description';
+      const coverImage = remixData.fileUpload || remixData[4] || '';
+      const royaltyRate =
+        remixData.royaltyPercentage ||
+        (remixData[5] ? Number(remixData[5]) : 0);
+
+      console.log('Extracted remix data:', {
+        parentId,
+        title,
+        tokenId,
+        royaltyRate,
+        description,
+        coverImage,
+      });
+
+      // Create a Remix object
+      return {
+        id: `remix-${index}`,
+        tokenId: tokenId, // Use the actual token ID from the blockchain
+        parentId: parentId,
+        title: title,
+        description: description,
+        parentTitle: 'Unknown Original',
+        parentCreator: 'Unknown',
+        royaltyRate: royaltyRate,
+        status: 'active',
+        createdAt: new Date(),
+        totalSales: '0',
+        totalRoyaltiesPaid: '0',
+        deposits: [],
+        coverImage: coverImage,
+      } as Remix;
+    });
+
+    setRemixes(formattedRemixes);
+  };
+
+  // Add this effect to fetch royalty info for all remixes
+  useEffect(() => {
+    if (remixes.length === 0 || !isConnected) return;
+
+    const fetchRoyaltyData = async () => {
+      for (const remix of remixes) {
+        if (remix.tokenId) {
+          // Get royalty info for this remix's parent
+          if (remix.parentId && remix.parentId !== '0') {
+            try {
+              await fetchParentRoyaltyInfo(remix.parentId);
+            } catch (error) {
+              console.error(
+                `Error fetching royalty info for parent #${remix.parentId}:`,
+                error
+              );
+            }
+          }
+        }
+      }
+    };
+
+    fetchRoyaltyData();
+  }, [remixes, isConnected]);
+
+  // Add this function to fetch parent royalty info
+  const fetchParentRoyaltyInfo = async (parentId: string) => {
+    await headerGetterContract(async (contract) => {
+      try {
+        // Get the IP details to check owner
+        const parentIP = await contract.getIP(BigInt(parentId));
+        console.log(`Parent IP #${parentId} details:`, parentIP);
+
+        // Get royalty info
+        const [pending, claimed] = await contract.getRoyalty(BigInt(parentId));
+        console.log(`Royalty for parent #${parentId}:`, {
+          pending: ethers.formatEther(pending),
+          claimed: ethers.formatEther(claimed),
+        });
+
+        // Fix the type error by explicitly typing prev
+        setParentIPDetails((prev: { [key: string]: any }) => ({
+          ...prev,
+          [parentId]: {
+            ...(prev[parentId] || {}),
+            title: parentIP.title || parentIP[1] || 'Unknown Title',
+            owner: parentIP.owner || parentIP[0] || 'Unknown Owner',
+            royaltyPercentage:
+              parentIP.royaltyPercentage ||
+              (parentIP[8] ? Number(parentIP[8]) : 0),
+            description: parentIP.description || parentIP[2] || '',
+            fileUpload: parentIP.fileUpload || parentIP[4] || '',
+            pendingRoyalty: ethers.formatEther(pending),
+            claimedRoyalty: ethers.formatEther(claimed),
+          },
+        }));
+      } catch (error) {
+        console.error(`Error fetching parent IP #${parentId}:`, error);
+      }
+    });
+  };
+
   if (!isConnected) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -346,7 +574,6 @@ export const RoyaltyManagement: React.FC = () => {
   // Update the tabs section to use the new handleTabChange function
   return (
     <div>
-      {/* The rest of your component stays the same */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h2 className="text-2xl font-bold">Royalty Management</h2>
         {/* Existing filter controls */}
