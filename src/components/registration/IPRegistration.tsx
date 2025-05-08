@@ -11,9 +11,10 @@ import {
   LICENSE_TYPE_MAPPING,
   LicenseMode,
   CommercialType,
+  CategoryEnum,
   getCategoryValue,
+  getCategoryName,
 } from '@/utils/enums';
-import { ethers } from 'ethers';
 
 export interface IPFormData {
   title: string;
@@ -37,13 +38,12 @@ export const IPRegistration: React.FC = () => {
     setDescription: setWalletDescription,
     setCategory: setWalletCategory,
     setTag: setWalletTag,
-    setFileUpload: setWalletFile,
-    setLicenseopt: setWalletLicenseType,
+    setFileUpload: setWalletFile, // Changed from setFile to setFileUpload
+    setLicenseopt: setWalletLicenseType, // Changed from setLicenseType to setLicenseopt
     setBasePrice: setWalletBasePrice,
     setRentPrice: setWalletRentPrice,
     setRoyaltyPercentage: setWalletRoyaltyPercentage,
     handleRegisterIP,
-    handleRemixIP,
   } = useWallet();
 
   const [licenseMode, setLicenseMode] = useState<LicenseMode>('personal');
@@ -116,22 +116,6 @@ export const IPRegistration: React.FC = () => {
     });
   };
 
-  const handleBuyRentSelection = (selected: boolean) => {
-    if (selected) {
-      // If selecting both buy and rent
-      handleFormChange({
-        licenseType: 'rentbuy',
-      });
-      setSelectedLicenseOptions(['buy', 'rent']); // Show both badges in the preview
-    } else {
-      // If deselecting one of them, default back to just rent
-      handleFormChange({
-        licenseType: 'rent',
-      });
-      setSelectedLicenseOptions(['rent']);
-    }
-  };
-
   const handleSubmit = async () => {
     if (!isConnected) return;
 
@@ -152,93 +136,48 @@ export const IPRegistration: React.FC = () => {
         throw new Error('File is required');
       }
 
-      // Determine license type
       let licenseTypeValue = LICENSE_TYPE_MAPPING[formData.licenseType];
-      const isRemix = formData.licenseType === 'remix';
 
-      // Convert category to uint - pass as string to getCategoryValue
-      const categoryNumber = parseInt(formData.category, 10);
-      const categoryValue = getCategoryValue(formData.category); // Pass as string directly from form
+      // Convert category to uint
+      const categoryValue = getCategoryValue(formData.category);
 
-      // Add validation for price values to avoid parsing errors
-      const basePrice = Number(formData.basePrice);
-      const rentPrice = Number(formData.rentPrice);
-
-      // Ensure prices are valid numbers and not too small
-      if (isNaN(basePrice) || basePrice < 0) {
-        throw new Error('Base price must be a valid positive number');
-      }
-      if (isNaN(rentPrice) || rentPrice < 0) {
-        throw new Error('Rent price must be a valid positive number');
-      }
-
-      // Use format strings to ensure valid input to parseEther
-      const basePriceInWei =
-        basePrice > 0
-          ? ethers
-              .parseEther(basePrice.toFixed(18).replace(/\.?0+$/, ''))
-              .toString()
-          : '0';
-
-      const rentPriceInWei =
-        rentPrice > 0
-          ? ethers
-              .parseEther(rentPrice.toFixed(18).replace(/\.?0+$/, ''))
-              .toString()
-          : '0';
-
+      // Convert numeric values to strings and ensure they're in wei format
+      const basePriceInWei = (formData.basePrice * 10 ** 18).toString();
+      const rentPriceInWei = (formData.rentPrice * 10 ** 18).toString();
       const royaltyPercentage = Math.floor(
         formData.royaltyPercentage
       ).toString();
 
       // Generate a placeholder file reference instead of using the actual file
-      const filePlaceholder = 'https://picsum.photos/seed/${Math.random()}/200';
+      const filePlaceholder =
+        formData.filePreview || 'https://placeholder-ipfs.com/image.png';
 
       const ipData = {
         title: formData.title,
         description: formData.description,
-        category: categoryValue.toString(),
+        category: categoryValue.toString(), // Convert the enum value to string for the contract
         tag: '',
-        fileUpload: filePlaceholder,
-        licenseopt: licenseTypeValue,
+        fileUpload: filePlaceholder, 
+        licenseopt: licenseTypeValue, // Changed from licenseType to licenseopt
         basePrice: basePriceInWei,
         rentPrice: rentPriceInWei,
         royaltyPercentage,
-        parentIPId: formData.parentIPId,
       };
+
+      console.log('Setting wallet context values:', ipData);
 
       setWalletTitle(ipData.title);
       setWalletDescription(ipData.description);
       setWalletCategory(ipData.category);
       setWalletTag(ipData.tag);
-      setWalletFile(ipData.fileUpload);
-      setWalletLicenseType(ipData.licenseopt);
+      setWalletFile(ipData.fileUpload); // Changed to use fileUpload
+      setWalletLicenseType(ipData.licenseopt); // Changed to use licenseopt
       setWalletBasePrice(ipData.basePrice);
       setWalletRentPrice(ipData.rentPrice);
       setWalletRoyaltyPercentage(ipData.royaltyPercentage);
 
-      // For remix, use dedicated remix function
-      if (isRemix && ipData.parentIPId) {
-        // Make sure parentIPId exists and is properly formatted
-        if (!ipData.parentIPId) {
-          throw new Error('Parent IP ID is required for remixes');
-        }
-
-        // You need to make sure this matches the expected parameter structure in handleRemixIP
-        await handleRemixIP({
-          title: ipData.title,
-          description: ipData.description,
-          category: ipData.category,
-          fileUpload: ipData.fileUpload,
-          parentIPId: ipData.parentIPId,
-        });
-
-        console.log('Remix transaction completed successfully');
-      } else {
-        // Regular IP registration
-        await handleRegisterIP(ipData);
-        console.log('Register IP transaction completed successfully');
-      }
+      // Pass the data directly to the handler
+      await handleRegisterIP(ipData);
 
       // Success handling
       setTxStatus('success');
@@ -269,14 +208,6 @@ export const IPRegistration: React.FC = () => {
       setTxStatus('error');
     }
   };
-
-  // Categories aligned with the enum pattern - same as in RemixRegistrationForm
-  const categories = Object.entries(CategoryEnum)
-    .filter(([key]) => isNaN(Number(key)))
-    .map(([key, value]) => ({
-      id: value.toString(),
-      name: key,
-    }));
 
   return (
     <div>

@@ -12,6 +12,7 @@ import { DepositsList } from './DepositsList';
 import { DepositModal } from './DepositModal';
 import { RefreshCw, Filter } from 'lucide-react';
 import { Remix, Deposit } from './types';
+import { CategoryEnum, getCategoryName } from '@/utils/enums';
 
 export const RemixManagement: React.FC = () => {
   const {
