@@ -74,7 +74,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   onClose,
   ip,
 }) => {
-  const { isConnected, handleBuyIP, handleRentIP, setTokenId } = useWallet();
+  const { isConnected, handleBuyIP, handleRentIP, setTokenId, tokenId, testData } = useWallet();
 
   // Handle both data formats - structured object and array-like blockchain data
   const extractTokenId = (ipObject: any): string => {
@@ -114,6 +114,8 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
     raw: ip.category || ip[3],
     extracted: category,
   });
+
+  // console.log("try to console data", ip);
 
   // Get price based on data format
   let price = 0;
@@ -155,10 +157,10 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
         }
       }
     } catch (error) {
-      console.error('Error formatting price:', error);
+      // console.error('Error formatting price:', error);
     }
   } catch (error) {
-    console.error('Error formatting price:', error);
+    // console.error('Error formatting price:', error);
   }
 
   // Add enhanced logging
@@ -251,6 +253,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
         console.log(`Buying IP #${id} with ${buyPrice} ETH`);
         // Pass the IP's ID directly to the buy function
         await handleBuyIP(buyPrice.toString(), id);
+          
       } else if (licenseType === 'rent') {
         // Calculate the price based on duration
         const rentTotal = calculatePrice();
@@ -269,7 +272,6 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
       setTxStatus('success');
       // No longer need this setTimeout as the TransactionStatus component handles it
     } catch (error: any) {
-      console.error('Transaction failed:', error);
       setTxStatus('error');
     }
   };
@@ -364,7 +366,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
             <div className="relative">
               <div className="w-full h-48 relative">
                 <Image
-                  src={imageUrl}
+                  src={"/placeholder.svg"}
                   alt={title}
                   fill
                   className="object-cover"

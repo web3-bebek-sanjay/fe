@@ -25,7 +25,7 @@ export function useRentList() {
       setRentList(formatted);
     } catch (error: any) {
       console.error("Failed to fetch rent list:", error.message);
-      alert("Gagal mengambil daftar sewa. Lihat console.");
+      // alert("Gagal mengambil daftar sewa. Lihat console.");
     } finally {
       setLoading(false);
     }
