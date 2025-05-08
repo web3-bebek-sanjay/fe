@@ -7,6 +7,7 @@ import {
   LicenseType,
   LicenseTypeString,
   CommercialType,
+  CategoryEnum,
 } from '@/utils/enums';
 
 interface RegistrationFormProps {
@@ -26,15 +27,12 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   selectedLicenseOptions,
   setSelectedLicenseOptions,
 }) => {
-  const categoryOptions = [
-    { value: 'Art', label: 'Art' },
-    { value: 'Music', label: 'Music' },
-    { value: 'Literature', label: 'Literature' },
-    { value: 'Software', label: 'Software' },
-    { value: 'Photography', label: 'Photography' },
-    { value: 'Video', label: 'Video' },
-    { value: 'Other', label: 'Other' },
-  ];
+  const categories = Object.entries(CategoryEnum)
+    .filter(([key]) => isNaN(Number(key)))
+    .map(([key, value]) => ({
+      id: value.toString(),
+      name: key,
+    }));
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,8 +59,8 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
         commercialType:
           option === 'personal'
             ? undefined
-            : option === 'rent' || option === 'remix' // This should now work
-            ? (option as CommercialType) // Explicit cast to ensure type safety
+            : option === 'rent' || option === 'remix'
+            ? (option as CommercialType) // Explicit
             : undefined,
       });
 
@@ -85,10 +83,15 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   const isRemix = formData.licenseType === 'remix';
   const isCommercial = formData.licenseMode === 'commercial';
 
-  // Check if specific options are selected
+  // Fix the isRentBuySelected check
   const isRentBuySelected =
-    isCommercial && selectedLicenseOptions.includes('personal');
-  const isRentSelected = selectedLicenseOptions.includes('rent');
+    formData.licenseType === 'rentbuy' ||
+    (selectedLicenseOptions.includes('buy') &&
+      selectedLicenseOptions.includes('rent'));
+  const isRentSelected =
+    selectedLicenseOptions.includes('rent') &&
+    !selectedLicenseOptions.includes('buy') &&
+    formData.licenseType !== 'rentbuy';
   const isRemixSelected = selectedLicenseOptions.includes('remix');
 
   return (
@@ -107,7 +110,9 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           className={`text-sm ${
             isPersonal && !isCommercial
               ? 'text-green-800 dark:text-green-300'
-              : isRent || isRentBuySelected
+              : isRentBuySelected
+              ? 'text-orange-800 dark:text-orange-300'
+              : isRentSelected
               ? 'text-orange-800 dark:text-orange-300'
               : 'text-purple-800 dark:text-purple-300'
           }`}
@@ -115,7 +120,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           {isPersonal && !isCommercial
             ? 'Personal license grants full rights for personal use with a one-time payment.'
             : isRentBuySelected
-            ? 'Commercial buy license allows unlimited usage with a one-time payment.'
+            ? 'Commercial buy & rent license allows both one-time purchase and time-limited rental options.'
             : isRent
             ? 'Commercial rent license allows time-limited commercial usage with a daily rental fee.'
             : 'Remix license allows modification and derivative works with royalty payments.'}
@@ -132,9 +137,14 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => toggleLicenseOption('personal')}
+                onClick={() => {
+                  onChange({ licenseType: 'rentbuy' });
+                  setSelectedLicenseOptions(['buy', 'rent']); // This should set both options
+                }}
                 className={`px-4 py-2 rounded-lg font-medium border ${
-                  isRentBuySelected
+                  formData.licenseType === 'rentbuy' ||
+                  (selectedLicenseOptions.includes('buy') &&
+                    selectedLicenseOptions.includes('rent'))
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
                 }`}
@@ -144,9 +154,12 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
 
               <button
                 type="button"
-                onClick={() => toggleLicenseOption('rent')}
+                onClick={() => {
+                  onChange({ licenseType: 'rent' });
+                  setSelectedLicenseOptions(['rent']);
+                }}
                 className={`px-4 py-2 rounded-lg font-medium border ${
-                  isRentSelected
+                  formData.licenseType === 'rent'
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
                 }`}
@@ -156,7 +169,11 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
 
               <button
                 type="button"
-                onClick={() => toggleLicenseOption('remix')}
+                onClick={() => {
+                  // This sets license type to remix (3)
+                  onChange({ licenseType: 'remix' });
+                  setSelectedLicenseOptions(['remix']);
+                }}
                 className={`px-4 py-2 rounded-lg font-medium border ${
                   isRemixSelected
                     ? 'bg-blue-600 text-white border-blue-600'
@@ -211,14 +228,12 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           <select
             value={formData.category}
             onChange={(e) => onChange({ category: e.target.value })}
-            className="form-select"
+            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
           >
-            <option value="" disabled>
-              Select category
-            </option>
-            {categoryOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            <option value="">Select a category</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
               </option>
             ))}
           </select>

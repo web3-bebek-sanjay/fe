@@ -14,7 +14,8 @@ export type LicenseTypeString =
   | 'rentbuy'
   | 'remix'
   | 'parentRemix'
-  | 'childRemix';
+  | 'childRemix'
+  | 'buy';
 
 // Mapping between string representation and numeric values
 export const LICENSE_TYPE_MAPPING: Record<LicenseTypeString, LicenseType> = {
@@ -24,6 +25,7 @@ export const LICENSE_TYPE_MAPPING: Record<LicenseTypeString, LicenseType> = {
   remix: LicenseType.ParentRemix,
   parentRemix: LicenseType.ParentRemix,
   childRemix: LicenseType.ChildRemix,
+  buy: LicenseType.RentAndBuy,
 };
 
 // License modes
@@ -66,8 +68,11 @@ export const getCategoryValue = (categoryName: string): number => {
 };
 
 // Helper function to get category name from value
-export const getCategoryName = (categoryValue: number): string => {
-  switch (categoryValue) {
+export const getCategoryName = (categoryValue: number | bigint): string => {
+  // Convert to Number to handle both number and bigint
+  const value = Number(categoryValue);
+
+  switch (value) {
     case CategoryEnum.Art:
       return 'Art';
     case CategoryEnum.Music:

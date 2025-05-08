@@ -3,12 +3,23 @@
 import React, { useState, useEffect } from 'react';
 import { UploadIcon, SearchIcon, XIcon } from 'lucide-react';
 import { IPFormData } from '../remix/RemixRegistration';
+import { useWallet } from '@/context/WalletContext';
+import { CategoryEnum, getCategoryValue, getCategoryName } from '@/utils/enums';
 
 interface RemixRegistrationFormProps {
   formData: IPFormData;
   onChange: (data: Partial<IPFormData>) => void;
   onSubmit: () => void;
   isWalletConnected: boolean;
+  remixOptions: Array<{
+    value: string;
+    label: string;
+    owner: string;
+    title: string;
+    description: string;
+    royaltyPercentage?: string; // Add this
+  }>;
+  isProcessing?: boolean;
 }
 
 interface ParentIP {
@@ -16,6 +27,7 @@ interface ParentIP {
   title: string;
   creator: string;
   thumbnail: string;
+  royaltyPercentage?: string;
   // Could add royalty and pricing info here if needed for display
 }
 
@@ -24,6 +36,8 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
   onChange,
   onSubmit,
   isWalletConnected,
+  remixOptions,
+  isProcessing = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ParentIP[]>([]);
@@ -31,17 +45,16 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
   const [selectedParentIP, setSelectedParentIP] = useState<ParentIP | null>(
     null
   );
-  const categories = [
-    'Art',
-    'Music',
-    'Photography',
-    'Literature',
-    'Software',
-    'Research',
-    'Design',
-    'Gaming',
-    'Other',
-  ];
+  // New state for default displayed parent IPs
+  const [defaultParentIPs, setDefaultParentIPs] = useState<ParentIP[]>([]);
+
+  // Categories aligned with the enum pattern
+  const categories = Object.entries(CategoryEnum)
+    .filter(([key]) => isNaN(Number(key)))
+    .map(([key, value]) => ({
+      id: value.toString(),
+      name: key,
+    }));
 
   useEffect(() => {
     onChange({
@@ -51,41 +64,62 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
     });
   }, []);
 
+  // New useEffect to set the default parent IPs when remixOptions changes
+  useEffect(() => {
+    if (remixOptions && remixOptions.length > 0) {
+      // Take the first 5 options (or all if less than 5)
+      const firstFiveOptions = remixOptions.slice(0, 5).map((option) => ({
+        id: option.value,
+        title: option.title,
+        creator: option.owner,
+        thumbnail: 'https://picsum.photos/seed/' + option.value + '/200',
+        royaltyPercentage: option.royaltyPercentage || '20',
+      }));
+
+      setDefaultParentIPs(firstFiveOptions);
+    }
+  }, [remixOptions]);
+
+  // Handle search for parent IPs from the remix options
   const handleSearch = () => {
     if (!searchQuery.trim()) return;
 
     setIsSearching(true);
 
-    setTimeout(() => {
-      const results: ParentIP[] = [
-        {
-          id: 'ip-001',
-          title: `${searchQuery} Original`,
-          creator: '0x742...3F91',
-          thumbnail: 'https://picsum.photos/seed/1/200',
-        },
-        {
-          id: 'ip-002',
-          title: 'Creative Work Related to ' + searchQuery,
-          creator: '0x891...2A45',
-          thumbnail: 'https://picsum.photos/seed/2/200',
-        },
-        {
-          id: 'ip-003',
-          title: searchQuery + ' Collection',
-          creator: '0x123...7890',
-          thumbnail: 'https://picsum.photos/seed/3/200',
-        },
-      ];
+    // Filter remix options based on search query
+    const filteredResults = remixOptions
+      .filter(
+        (option) =>
+          option.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          option.owner.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .map((option) => ({
+        id: option.value,
+        title: option.title,
+        creator: option.owner,
+        thumbnail: 'https://picsum.photos/seed/' + option.value + '/200',
+        royaltyPercentage: option.royaltyPercentage || '20', // Include royalty percentage
+      }));
 
-      setSearchResults(results);
+    setTimeout(() => {
+      setSearchResults(filteredResults.length > 0 ? filteredResults : []);
       setIsSearching(false);
-    }, 1000);
+    }, 500);
   };
 
   const selectParentIP = (ip: ParentIP) => {
     setSelectedParentIP(ip);
-    onChange({ parentIPId: ip.id });
+
+    // Find the corresponding remixOption to get the royalty percentage
+    const selectedOption = remixOptions.find(
+      (option) => option.value === ip.id
+    );
+
+    onChange({
+      selectedOption: ip.id,
+      parentRoyaltyPercentage: selectedOption?.royaltyPercentage || '20',
+    });
+
     setSearchResults([]);
   };
 
@@ -119,11 +153,12 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
               className="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
               placeholder="Search by title, creator, or IP ID"
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              disabled={isProcessing}
             />
             <button
               type="button"
               onClick={handleSearch}
-              disabled={isSearching || !searchQuery.trim()}
+              disabled={isSearching || !searchQuery.trim() || isProcessing}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50"
             >
               {isSearching ? (
@@ -160,6 +195,39 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
           </div>
         </div>
 
+        {/* Default Parent IPs */}
+        {!selectedParentIP &&
+          defaultParentIPs.length > 0 &&
+          !searchResults.length && (
+            <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mb-4">
+              <div className="p-2 bg-slate-50 dark:bg-slate-900 text-xs font-medium">
+                Available Parent IPs
+              </div>
+              <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                {defaultParentIPs.map((ip) => (
+                  <div
+                    key={ip.id}
+                    className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer flex items-center gap-3"
+                    onClick={() => selectParentIP(ip)}
+                  >
+                    <img
+                      src={ip.thumbnail}
+                      alt={ip.title}
+                      className="w-10 h-10 rounded object-cover"
+                    />
+                    <div>
+                      <div className="font-medium">{ip.title}</div>
+                      <div className="text-xs text-slate-500">
+                        Creator: {ip.creator.substring(0, 6)}...
+                        {ip.creator.substring(38)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         {/* Search results */}
         {searchResults.length > 0 && (
           <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mb-4">
@@ -181,7 +249,8 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
                   <div>
                     <div className="font-medium">{ip.title}</div>
                     <div className="text-xs text-slate-500">
-                      Creator: {ip.creator}
+                      Creator: {ip.creator.substring(0, 6)}...
+                      {ip.creator.substring(38)}
                     </div>
                   </div>
                 </div>
@@ -201,16 +270,19 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
             <div className="flex-1">
               <div className="font-medium">{selectedParentIP.title}</div>
               <div className="text-xs text-slate-500">
-                ID: {selectedParentIP.id} | Creator: {selectedParentIP.creator}
+                ID: {selectedParentIP.id} | Creator:{' '}
+                {selectedParentIP.creator.substring(0, 6)}...
+                {selectedParentIP.creator.substring(38)}
               </div>
             </div>
             <button
               type="button"
               onClick={() => {
                 setSelectedParentIP(null);
-                onChange({ parentIPId: undefined });
+                onChange({ selectedOption: undefined });
               }}
               className="text-red-500 hover:text-red-700"
+              disabled={isProcessing}
             >
               <XIcon size={18} />
             </button>
@@ -264,6 +336,7 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
             }
             className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
             placeholder="Enter remix title"
+            disabled={isProcessing}
           />
         </div>
         <div>
@@ -277,6 +350,7 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
             }
             className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 min-h-[100px]"
             placeholder="Describe your remix and how it relates to the original IP"
+            disabled={isProcessing}
           />
         </div>
         <div>
@@ -289,11 +363,12 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
               })
             }
             className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+            disabled={isProcessing}
           >
             <option value="">Select a category</option>
             {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
+              <option key={category.id} value={category.id}>
+                {category.name}
               </option>
             ))}
           </select>
@@ -305,8 +380,10 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
           <div
             className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
             onClick={() =>
+              !isProcessing &&
               document.getElementById('remix-file-upload')?.click()
             }
+            style={{ cursor: isProcessing ? 'not-allowed' : 'pointer' }}
           >
             {formData.filePreview ? (
               <div className="flex flex-col items-center">
@@ -320,19 +397,21 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
                 <div className="text-sm text-slate-600 dark:text-slate-400">
                   {formData.file?.name}
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChange({
-                      file: null,
-                      filePreview: '',
-                    });
-                  }}
-                  className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
-                >
-                  Remove file
-                </button>
+                {!isProcessing && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChange({
+                        file: null,
+                        filePreview: '',
+                      });
+                    }}
+                    className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+                  >
+                    Remove file
+                  </button>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center">
@@ -351,12 +430,11 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
               onChange={handleFileChange}
               className="hidden"
               accept="image/*,audio/*,video/*,application/pdf"
+              disabled={isProcessing}
             />
           </div>
         </div>
       </div>
-
-      {/* Removed pricing section */}
 
       <button
         onClick={onSubmit}
@@ -364,12 +442,41 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
           !isWalletConnected ||
           !formData.title ||
           !formData.category ||
-          !formData.file ||
-          !formData.parentIPId
+          !formData.filePreview ||
+          !formData.selectedOption ||
+          isProcessing
         }
         className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
-        {isWalletConnected ? 'Register Remix' : 'Connect Wallet to Register'}
+        {isProcessing ? (
+          <div className="flex items-center justify-center">
+            <svg
+              className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            Processing Remix Registration...
+          </div>
+        ) : isWalletConnected ? (
+          'Register Remix'
+        ) : (
+          'Connect Wallet to Register'
+        )}
       </button>
     </div>
   );
