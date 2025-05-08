@@ -3,7 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { UploadIcon } from 'lucide-react';
 import { IPFormData } from './IPRegistration';
-import { LicenseType, LicenseTypeString, CommercialType } from '@/utils/enums';
+import {
+  LicenseType,
+  LicenseTypeString,
+  CommercialType,
+  CategoryEnum,
+} from '@/utils/enums';
 
 interface RegistrationFormProps {
   formData: IPFormData;
@@ -22,15 +27,12 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   selectedLicenseOptions,
   setSelectedLicenseOptions,
 }) => {
-  const categoryOptions = [
-    { value: 'Art', label: 'Art' },
-    { value: 'Music', label: 'Music' },
-    { value: 'Literature', label: 'Literature' },
-    { value: 'Software', label: 'Software' },
-    { value: 'Photography', label: 'Photography' },
-    { value: 'Video', label: 'Video' },
-    { value: 'Other', label: 'Other' },
-  ];
+  const categories = Object.entries(CategoryEnum)
+    .filter(([key]) => isNaN(Number(key)))
+    .map(([key, value]) => ({
+      id: value.toString(),
+      name: key,
+    }));
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -226,14 +228,12 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           <select
             value={formData.category}
             onChange={(e) => onChange({ category: e.target.value })}
-            className="form-select"
+            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
           >
-            <option value="" disabled>
-              Select category
-            </option>
-            {categoryOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            <option value="">Select a category</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
               </option>
             ))}
           </select>

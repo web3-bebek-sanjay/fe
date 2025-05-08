@@ -337,11 +337,11 @@ export const RemixManagement: React.FC = () => {
           return {
             ...remix,
             // For original IPs, we mark them clearly
-            parentTitle: 'Original IP',
-            parentCreator: 'You are the creator',
-            // Use the IP's own details
-            title: originalDetail.title || remix.title,
-            description: originalDetail.description || remix.description,
+            parentTitle: originalDetail.title || 'Original IP',
+            parentCreator: originalDetail.owner || 'Original Creator',
+            // Keep the remix's own title and description
+            // title: originalDetail.title || remix.title,
+            // description: originalDetail.description || remix.description,
           };
         }
         return remix;
@@ -363,15 +363,27 @@ export const RemixManagement: React.FC = () => {
       return remix;
     });
 
+    // Custom replacer function for JSON.stringify to handle BigInt values
+    const bigIntReplacer = (key: string, value: any) => {
+      return typeof value === 'bigint' ? value.toString() : value;
+    };
+
     // Use a deep comparison before updating state to prevent unnecessary renders
     const hasChanged =
-      JSON.stringify(updatedRemixes) !== JSON.stringify(remixes);
+      JSON.stringify(updatedRemixes, bigIntReplacer) !==
+      JSON.stringify(remixes, bigIntReplacer);
 
     if (hasChanged) {
       console.log(
         'Updated remixes with parent details - actual change detected'
       );
-      setRemixes(updatedRemixes);
+      setRemixes((prevRemixes) => {
+        // If the arrays are identical in content, return the previous array to avoid re-renders
+        const areRemixesEqual =
+          JSON.stringify(updatedRemixes, bigIntReplacer) ===
+          JSON.stringify(prevRemixes, bigIntReplacer);
+        return areRemixesEqual ? prevRemixes : updatedRemixes;
+      });
     } else {
       console.log('No changes detected in remixes, skipping update');
     }
@@ -574,10 +586,14 @@ export const RemixManagement: React.FC = () => {
 
       <div>
         <TabsGroup
-          tabs={[
-            { id: 'remixes', label: 'Your Remixes' },
-            { id: 'deposits', label: 'Royalty Deposits' },
-          ]}
+          tabs={
+            remixes.length > 0
+              ? [
+                  { id: 'remixes', label: 'Your Remixes' },
+                  { id: 'deposits', label: 'Royalty Deposits' },
+                ]
+              : [{ id: 'remixes', label: 'No Remixes Found' }]
+          }
           activeTab={activeTab}
           onChange={setActiveTab}
         />
@@ -590,11 +606,20 @@ export const RemixManagement: React.FC = () => {
       ) : (
         <>
           {activeTab === 'remixes' ? (
-            <RemixList
-              remixes={remixes}
-              onDepositClick={handleDepositClick}
-              parentIPDetails={parentIPDetails}
-            />
+            remixes.length > 0 ? (
+              <RemixList
+                remixes={remixes}
+                onDepositClick={handleDepositClick}
+                parentIPDetails={parentIPDetails}
+              />
+            ) : (
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 text-center my-6">
+                <h2 className="text-xl font-semibold mb-2">No Remixes Found</h2>
+                <p className="text-slate-600 dark:text-slate-400 mb-4">
+                  You don't have any remixes registered yet.
+                </p>
+              </div>
+            )
           ) : (
             <DepositsList remixes={remixes} />
           )}

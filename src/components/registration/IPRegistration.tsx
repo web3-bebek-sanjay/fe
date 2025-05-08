@@ -247,6 +247,14 @@ export const IPRegistration: React.FC = () => {
     }
   };
 
+  // Categories aligned with the enum pattern - same as in RemixRegistrationForm
+  const categories = Object.entries(CategoryEnum)
+    .filter(([key]) => isNaN(Number(key)))
+    .map(([key, value]) => ({
+      id: value.toString(),
+      name: key,
+    }));
+
   return (
     <div>
       <div className="mb-6">

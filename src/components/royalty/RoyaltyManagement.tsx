@@ -53,34 +53,49 @@ const RoyaltyClaimCard = ({
   tokenId,
   isLoading,
 }: {
-  royaltyInfo: { pending: string; claimed: string };
+  royaltyInfo: {
+    pending: string;
+    claimed: string;
+    isYourIP?: boolean;
+  };
   onClaimRoyalty: (tokenId: string) => Promise<void>;
   tokenId: string;
   isLoading: boolean;
 }) => {
-  const pendingAmount = Number(royaltyInfo.pending);
+  // Check if pending amount is a valid number and greater than zero
+  const pendingStr = royaltyInfo.pending || '0';
+  const pendingAmount = Number(pendingStr);
 
-  if (pendingAmount <= 0) {
+  // Log for debugging
+  console.log(`RoyaltyClaimCard for token #${tokenId}:`, {
+    pendingStr,
+    pendingAmount,
+    isYourIP: royaltyInfo.isYourIP,
+  });
+
+  // Return null if no pending amount or invalid value
+  if (isNaN(pendingAmount) || pendingAmount <= 0) {
     return null;
   }
+
+  // If isYourIP is explicitly set to false, only show a read-only view
+  const isReadOnly = royaltyInfo.isYourIP === false;
 
   return (
     <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-700 rounded-lg mb-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-medium text-green-700 dark:text-green-400">
-            {pendingAmount > 0
-              ? 'Royalties Available!'
-              : 'No Royalties Available'}
+            {isReadOnly ? 'Royalties for This IP' : 'Royalties Available!'}
           </h3>
           <p className="text-xs text-green-600 dark:text-green-500 mt-1">
-            You have{' '}
+            {isReadOnly ? 'This IP has ' : 'You have '}
             <span className="font-bold">{royaltyInfo.pending} ETH</span> in
-            royalties ready to claim
+            royalties {isReadOnly ? '' : 'ready to claim'}
             {tokenId !== '0' ? ` from IP #${tokenId}` : ''}
           </p>
         </div>
-        {pendingAmount > 0 && (
+        {!isReadOnly && (
           <button
             onClick={() => onClaimRoyalty(tokenId)}
             disabled={isLoading}
@@ -103,7 +118,7 @@ const RoyaltyClaimCard = ({
       </div>
       <div className="mt-2 pt-2 border-t border-green-100 dark:border-green-800">
         <p className="text-xs text-green-600 dark:text-green-500">
-          Previously claimed: {royaltyInfo.claimed} ETH
+          Previously claimed: {royaltyInfo.claimed || '0'} ETH
         </p>
       </div>
     </div>
@@ -127,9 +142,13 @@ const RoyaltySummary = ({
   onClaimRoyalty: (tokenId: string) => Promise<void>;
   isLoading: boolean;
 }) => {
-  // If token #0 has royalties, present it as a single card
+  // If token #0 has royalties AND user is the owner, present it as a single card
   const globalRoyalty = royaltyInfo['0'];
-  if (globalRoyalty && Number(globalRoyalty.pending) > 0) {
+  if (
+    globalRoyalty &&
+    Number(globalRoyalty.pending) > 0 &&
+    globalRoyalty.isYourIP === true
+  ) {
     console.log('Found global royalties in token #0:', globalRoyalty.pending);
     return (
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 mb-6">
@@ -276,26 +295,38 @@ export const RoyaltyManagement: React.FC = () => {
       };
     },
     tokenId: string
-  ): { pending: string; claimed: string } => {
+  ): { pending: string; claimed: string; isYourIP?: boolean } => {
     // Always check token #0 for royalties as it appears to be the global accumulator
-    const globalRoyalty = royaltyInfo['0'] || { pending: '0', claimed: '0' };
+    const globalRoyalty = royaltyInfo['0'] || {
+      pending: '0',
+      claimed: '0',
+      isYourIP: false,
+    };
 
     // Also check the specific token ID
     const specificRoyalty = royaltyInfo[tokenId] || {
       pending: '0',
       claimed: '0',
+      isYourIP: false,
     };
 
-    // If token #0 has royalties but the specific token doesn't, use the global amount
-    // This is likely the case based on the smart contract design
+    // Only use global royalty pool if:
+    // 1. The global pool has pending royalties
+    // 2. The specific token doesn't have its own pending royalties
+    // 3. The user owns the global token #0
     if (
       Number(globalRoyalty.pending) > 0 &&
-      Number(specificRoyalty.pending) === 0
+      Number(specificRoyalty.pending) === 0 &&
+      globalRoyalty.isYourIP === true
     ) {
+      // Only log global royalty if token #0 belongs to the user
       console.log(
         `Using global royalty from token #0 for token #${tokenId}: ${globalRoyalty.pending} ETH`
       );
-      return globalRoyalty;
+      return {
+        ...globalRoyalty,
+        isYourIP: true,
+      };
     }
 
     return specificRoyalty;
@@ -347,24 +378,31 @@ export const RoyaltyManagement: React.FC = () => {
       try {
         // First get the IP to determine ownership and details
         const ipData = await contract.getIP(BigInt(tokenId));
-        console.log(`IP data for token #${tokenId}:`, ipData);
 
         // Extract the owner address, ensuring consistent format
         const ipOwnerAddress = ipData.owner ? ipData.owner.toLowerCase() : null;
         const isOwner =
           account && ipOwnerAddress && ipOwnerAddress === account.toLowerCase();
 
+        // Only log IP data if it's your IP or it's not token #0
+        if (isOwner || tokenId !== '0') {
+          console.log(`IP data for token #${tokenId}:`, ipData);
+        }
+
         // Check royalty information
         try {
           const [pending, claimed] = await contract.getRoyalty(BigInt(tokenId));
 
-          console.log(`Royalty for token #${tokenId}:`, {
-            pending: ethers.formatEther(pending),
-            claimed: ethers.formatEther(claimed),
-            owner: ipOwnerAddress,
-            currentAccount: account?.toLowerCase(),
-            isOwner,
-          });
+          // Only log royalty info if it's your IP or it's not token #0
+          if (isOwner || tokenId !== '0') {
+            console.log(`Royalty for token #${tokenId}:`, {
+              pending: ethers.formatEther(pending),
+              claimed: ethers.formatEther(claimed),
+              owner: ipOwnerAddress,
+              currentAccount: account?.toLowerCase(),
+              isOwner,
+            });
+          }
 
           // Store royalty info in state
           setRoyaltyInfo((prev) => ({
@@ -481,7 +519,7 @@ export const RoyaltyManagement: React.FC = () => {
         // 6. Additionally, check royalties for token #0 explicitly since it seems to be tracking royalties
         try {
           await fetchRoyaltyInfo('0');
-          console.log('Explicitly checked royalties for token #0');
+          // Don't log message about explicitly checking token #0
         } catch (error) {
           console.error('Error checking royalties for token #0:', error);
         }
@@ -527,7 +565,20 @@ export const RoyaltyManagement: React.FC = () => {
       // Get the royalty info for this token
       const tokenRoyaltyInfo = royaltyInfo[specificTokenId];
 
-      if (!tokenRoyaltyInfo || Number(tokenRoyaltyInfo.pending) <= 0) {
+      if (!tokenRoyaltyInfo) {
+        alert(`No royalty information available for IP #${specificTokenId}`);
+        return;
+      }
+
+      // Verify user owns this token
+      if (!tokenRoyaltyInfo.isYourIP) {
+        alert(
+          `You are not the owner of IP #${specificTokenId} and cannot claim its royalties`
+        );
+        return;
+      }
+
+      if (Number(tokenRoyaltyInfo.pending) <= 0) {
         alert(`No royalties available to claim for IP #${specificTokenId}`);
         return;
       }
@@ -1129,7 +1180,9 @@ export const RoyaltyManagement: React.FC = () => {
                   {/* Add royalty actions for this specific IP */}
                   {selectedIP &&
                     Number(getRoyaltyAmount(royaltyInfo, selectedIP).pending) >
-                      0 && (
+                      0 &&
+                    getRoyaltyAmount(royaltyInfo, selectedIP).isYourIP ===
+                      true && (
                       <div className="mt-4 mb-6">
                         <button
                           onClick={() =>
@@ -1312,7 +1365,8 @@ export const RoyaltyManagement: React.FC = () => {
                       {/* Improved pending royalty display */}
                       {(ip.pendingRoyalty && Number(ip.pendingRoyalty) > 0) ||
                       (globalRoyaltyInfo &&
-                        Number(globalRoyaltyInfo.pending) > 0) ? (
+                        Number(globalRoyaltyInfo.pending) > 0 &&
+                        globalRoyaltyInfo.isYourIP === true) ? (
                         <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
                           <div className="flex justify-between items-center">
                             <div>
@@ -1342,9 +1396,12 @@ export const RoyaltyManagement: React.FC = () => {
                               Number(
                                 getRoyaltyAmount(royaltyInfo, ip.tokenId)
                                   .pending
-                              ) > 0) ||
+                              ) > 0 &&
+                              getRoyaltyAmount(royaltyInfo, ip.tokenId)
+                                .isYourIP === true) ||
                             (globalRoyaltyInfo &&
-                              Number(globalRoyaltyInfo.pending) > 0) ? (
+                              Number(globalRoyaltyInfo.pending) > 0 &&
+                              globalRoyaltyInfo.isYourIP === true) ? (
                               <button
                                 onClick={() => {
                                   // If this IP has pending royalties, claim from it
@@ -1359,7 +1416,8 @@ export const RoyaltyManagement: React.FC = () => {
                                   }
                                   // Otherwise claim from the central pool
                                   else if (
-                                    Number(globalRoyaltyInfo.pending) > 0
+                                    Number(globalRoyaltyInfo.pending) > 0 &&
+                                    globalRoyaltyInfo.isYourIP === true
                                   ) {
                                     onClaimRoyalty('0');
                                   }
@@ -1394,7 +1452,9 @@ export const RoyaltyManagement: React.FC = () => {
                           {ip.tokenId &&
                             Number(
                               getRoyaltyAmount(royaltyInfo, ip.tokenId).pending
-                            ) > 0 && (
+                            ) > 0 &&
+                            getRoyaltyAmount(royaltyInfo, ip.tokenId)
+                              .isYourIP === true && (
                               <button
                                 onClick={() =>
                                   ip.tokenId
@@ -1419,7 +1479,8 @@ export const RoyaltyManagement: React.FC = () => {
                             Number(
                               getRoyaltyAmount(royaltyInfo, ip.tokenId).pending
                             ) <= 0 &&
-                            Number(globalRoyaltyInfo.pending) > 0 && (
+                            Number(globalRoyaltyInfo.pending) > 0 &&
+                            globalRoyaltyInfo.isYourIP === true && (
                               <button
                                 onClick={() => onClaimRoyalty('0')}
                                 className="p-1.5 text-sm flex items-center rounded-md bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"

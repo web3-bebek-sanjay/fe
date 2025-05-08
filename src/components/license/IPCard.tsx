@@ -5,10 +5,14 @@ import { motion } from 'framer-motion';
 import { TagIcon } from 'lucide-react';
 import Image from 'next/image';
 import { ethers } from 'ethers';
+import { getCategoryName } from '@/utils/enums';
 
 // Map license type number to user-friendly formats
-const getLicenseTypes = (licenseType: number): string[] => {
-  switch (licenseType) {
+const getLicenseTypes = (licenseType: number | bigint): string[] => {
+  // Convert to Number to handle both number and bigint
+  const value = Number(licenseType);
+
+  switch (value) {
     case 0:
       return ['personal'];
     case 1:
@@ -24,12 +28,6 @@ const getLicenseTypes = (licenseType: number): string[] => {
   }
 };
 
-// Map category number to readable name
-const getCategoryName = (category: number): string => {
-  const categories = ['Art', 'Audio', 'Video', 'Text', 'Software', 'Other'];
-  return categories[category] || 'Unknown';
-};
-
 interface IPCardProps {
   ip: any;
   onClick: () => void;
@@ -42,12 +40,60 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
   const owner = ip.owner || ip[0] || 'Unknown'; // Owner is usually at index 0
   const description = ip.description || ip[2] || ''; // Access description
 
-  // Format price based on data type
+  // Get category based on data structure - using index 3 from contract data
+  let categoryValue = ip.category;
+  if (categoryValue === undefined && ip[3] !== undefined) {
+    categoryValue = ip[3];
+    console.log(`IPCard: Extracting category from index 3: ${categoryValue}`);
+  }
+
+  const category =
+    typeof categoryValue === 'string'
+      ? categoryValue
+      : getCategoryName(categoryValue || 0);
+
+  // Get license types based on data structure - using index 5 from contract data
+  const licenseTypeValue = ip.licenseType || ip[5] || 0;
+  if (ip[5] !== undefined) {
+    console.log(`IPCard: Extracting license type from index 5: ${ip[5]}`);
+  }
+
+  const licenseTypes = Array.isArray(ip.licenseTypes)
+    ? ip.licenseTypes
+    : getLicenseTypes(Number(licenseTypeValue));
+
+  // Format price based on data type - using index 6 or 7 from contract data
   let price = 0;
   try {
-    if (typeof ip.basePrice === 'bigint' || typeof ip[7] === 'bigint') {
-      const priceValue = ip.basePrice || ip[7];
-      price = parseFloat(ethers.formatEther(priceValue));
+    if (
+      typeof ip.basePrice === 'bigint' ||
+      typeof ip[6] === 'bigint' ||
+      typeof ip[7] === 'bigint'
+    ) {
+      // Try index 6 first (basePrice from contract)
+      if (ip[6] !== undefined) {
+        const priceValue = ip[6];
+        price = parseFloat(ethers.formatEther(priceValue));
+        console.log(
+          `IPCard: Extracting price from index 6: ${price} ETH from value: ${priceValue}`
+        );
+      }
+      // Then try index 7 (rentPrice from contract) as fallback
+      else if (ip[7] !== undefined) {
+        const priceValue = ip[7];
+        price = parseFloat(ethers.formatEther(priceValue));
+        console.log(
+          `IPCard: Extracting price from index 7: ${price} ETH from value: ${priceValue}`
+        );
+      }
+      // Then try direct property access
+      else if (ip.basePrice !== undefined) {
+        const priceValue = ip.basePrice;
+        price = parseFloat(ethers.formatEther(priceValue));
+        console.log(
+          `IPCard: Extracting price from basePrice property: ${price} ETH from value: ${priceValue}`
+        );
+      }
     } else if (typeof ip.price === 'number') {
       price = ip.price;
     } else if (typeof ip.price === 'string') {
@@ -57,22 +103,11 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
     console.error('Error formatting price:', error);
   }
 
-  // Get license types based on data structure
-  const licenseTypes = Array.isArray(ip.licenseTypes)
-    ? ip.licenseTypes
-    : getLicenseTypes(Number(ip.licenseType || ip[6] || 0));
-
-  // Get category based on data structure
-  const category =
-    typeof ip.category === 'string'
-      ? ip.category
-      : getCategoryName(Number(ip.category || ip[3] || 0));
-
   // Use thumbnail if available or fileUri for blockchain data
   const imageUrl =
     ip.thumbnail ||
     ip.fileUri ||
-    ip[200] ||
+    ip[4] || // fileUpload is at index 4
     `https://picsum.photos/seed/${id || 'default'}/200`;
 
   return (

@@ -45,6 +45,8 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
   const [selectedParentIP, setSelectedParentIP] = useState<ParentIP | null>(
     null
   );
+  // New state for default displayed parent IPs
+  const [defaultParentIPs, setDefaultParentIPs] = useState<ParentIP[]>([]);
 
   // Categories aligned with the enum pattern
   const categories = Object.entries(CategoryEnum)
@@ -61,6 +63,22 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
       commercialType: 'remix' as const,
     });
   }, []);
+
+  // New useEffect to set the default parent IPs when remixOptions changes
+  useEffect(() => {
+    if (remixOptions && remixOptions.length > 0) {
+      // Take the first 5 options (or all if less than 5)
+      const firstFiveOptions = remixOptions.slice(0, 5).map((option) => ({
+        id: option.value,
+        title: option.title,
+        creator: option.owner,
+        thumbnail: 'https://picsum.photos/seed/' + option.value + '/200',
+        royaltyPercentage: option.royaltyPercentage || '20',
+      }));
+
+      setDefaultParentIPs(firstFiveOptions);
+    }
+  }, [remixOptions]);
 
   // Handle search for parent IPs from the remix options
   const handleSearch = () => {
@@ -176,6 +194,39 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Default Parent IPs */}
+        {!selectedParentIP &&
+          defaultParentIPs.length > 0 &&
+          !searchResults.length && (
+            <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mb-4">
+              <div className="p-2 bg-slate-50 dark:bg-slate-900 text-xs font-medium">
+                Available Parent IPs
+              </div>
+              <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                {defaultParentIPs.map((ip) => (
+                  <div
+                    key={ip.id}
+                    className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer flex items-center gap-3"
+                    onClick={() => selectParentIP(ip)}
+                  >
+                    <img
+                      src={ip.thumbnail}
+                      alt={ip.title}
+                      className="w-10 h-10 rounded object-cover"
+                    />
+                    <div>
+                      <div className="font-medium">{ip.title}</div>
+                      <div className="text-xs text-slate-500">
+                        Creator: {ip.creator.substring(0, 6)}...
+                        {ip.creator.substring(38)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         {/* Search results */}
         {searchResults.length > 0 && (
