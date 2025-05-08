@@ -108,6 +108,7 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
     ip.thumbnail ||
     ip.fileUri ||
     ip[4] || // fileUpload is at index 4
+    ip.imageUrl || // Use imageUrl if it was added previously
     `https://picsum.photos/seed/${id || 'default'}/200`;
 
   return (
@@ -123,7 +124,7 @@ export const IPCard: React.FC<IPCardProps> = ({ ip, onClick }) => {
     >
       <div className="w-full h-48 overflow-hidden relative">
         <Image
-          src={"/placeholder.svg"}
+          src={imageUrl}
           alt={title}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

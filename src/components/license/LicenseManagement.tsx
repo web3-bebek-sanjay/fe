@@ -40,6 +40,15 @@ export const LicenseManagement: React.FC = () => {
       if (otherIPs && otherIPs.length > 0) {
         console.log('First IP data structure:', otherIPs[0]);
 
+        // Add placeholder image URLs to IPs that don't have images
+        otherIPs.forEach((ip, index) => {
+          // If the IP doesn't have an image (imageUrl, thumbnail, fileUri, or at index 4)
+          if (!ip.imageUrl && !ip.thumbnail && !ip.fileUri && !ip[4]) {
+            // Add a placeholder image URL using the provided pattern
+            ip.imageUrl = `https://picsum.photos/seed/${index + 100}/200`;
+          }
+        });
+
         // Log category from index 3
         const categoryValue = otherIPs[0][3];
         if (categoryValue !== undefined) {

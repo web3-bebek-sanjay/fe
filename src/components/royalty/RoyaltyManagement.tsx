@@ -668,7 +668,7 @@ export const RoyaltyManagement: React.FC = () => {
             title: remix.ip.title || 'Untitled Remix',
             category: getCategoryName(Number(remix.ip.category)),
             type: 'remix',
-            imageUrl: `https://picsum.photos/seed/${index + 100}/200`, // Placeholder image
+            imageUrl: `https://picsum.photos/seed/${index + 100}/200`, 
             earnings: Number(
               ethers.formatEther(remix.ip.royaltyPercentage || '0')
             ),
