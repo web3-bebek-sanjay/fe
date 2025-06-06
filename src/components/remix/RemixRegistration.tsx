@@ -21,6 +21,9 @@ export interface IPFormData {
   licenseMode?: string;
   commercialType?: string;
   parentRoyaltyPercentage?: string; // Add this field
+  // Supabase storage properties
+  uploadedUrl?: string;
+  uploadedPath?: string;
 }
 
 export const RemixRegistration: React.FC = () => {
@@ -72,6 +75,38 @@ export const RemixRegistration: React.FC = () => {
         const royaltyPercentage =
           ip.royaltyPercentage || (ip[8] ? ip[8].toString() : '20');
 
+        // Extract image URL using the same logic as LicenseManagement
+        let imageUrl = `https://picsum.photos/seed/${index + 100}/200`; // Default fallback
+
+        // Priority order for image sources:
+        // 1. ip.imageUrl (processed)
+        // 2. ip[4] (fileUpload from blockchain)
+        // 3. ip.fileUri
+        // 4. ip.thumbnail
+        // 5. fallback to placeholder
+
+        if (
+          ip.imageUrl &&
+          typeof ip.imageUrl === 'string' &&
+          ip.imageUrl.trim() !== ''
+        ) {
+          imageUrl = ip.imageUrl;
+        } else if (ip[4] && typeof ip[4] === 'string' && ip[4].trim() !== '') {
+          imageUrl = ip[4];
+        } else if (
+          ip.fileUri &&
+          typeof ip.fileUri === 'string' &&
+          ip.fileUri.trim() !== ''
+        ) {
+          imageUrl = ip.fileUri;
+        } else if (
+          ip.thumbnail &&
+          typeof ip.thumbnail === 'string' &&
+          ip.thumbnail.trim() !== ''
+        ) {
+          imageUrl = ip.thumbnail;
+        }
+
         return {
           value: index.toString(),
           label: title,
@@ -79,6 +114,7 @@ export const RemixRegistration: React.FC = () => {
           title: title,
           description: description,
           royaltyPercentage: royaltyPercentage,
+          imageUrl: imageUrl, // Add the extracted image URL
         };
       });
       setRemixOptions(options);
@@ -113,11 +149,7 @@ export const RemixRegistration: React.FC = () => {
       return new Promise<string | null>((resolve) => {
         headerGetterContract(async (contract: Contract) => {
           try {
-            console.log(`Getting tokenId for IP owned by ${ownerAddress}`);
-
-            // Get how many tokens this owner has
             const ownerBalance = await contract.balanceOf(ownerAddress);
-            console.log(`Owner has ${ownerBalance} tokens`);
 
             if (Number(ownerBalance) === 0) {
               console.error('Owner has no tokens');
@@ -129,9 +161,6 @@ export const RemixRegistration: React.FC = () => {
             for (let i = 0; i < Number(ownerBalance); i++) {
               try {
                 const tokenId = await contract.ownerToTokenIds(ownerAddress, i);
-                console.log(`Checking token #${tokenId}`);
-
-                // Get full IP details for this token
                 const ipDetails = await contract.getIP(tokenId);
 
                 // Check title and description match
@@ -141,17 +170,11 @@ export const RemixRegistration: React.FC = () => {
                 const selectedDescription =
                   selectedIP.description || selectedIP[2];
 
-                console.log(`Comparing: 
-                  Token title: ${ipTitle} vs Selected title: ${selectedTitle}
-                  Token desc: ${ipDescription} vs Selected desc: ${selectedDescription}`);
-
                 // Check if this is the IP we're looking for by matching title and description
                 if (
                   ipTitle === selectedTitle &&
                   ipDescription === selectedDescription
                 ) {
-                  console.log(`Found matching token ID: ${tokenId}`);
-
                   // Store the parentTokenId in state for later use
                   setSelectedParentTokenId(tokenId.toString());
 
@@ -207,16 +230,12 @@ export const RemixRegistration: React.FC = () => {
 
       // Convert selected option to index
       const selectedIPIndex = parseInt(formData.selectedOption);
-      console.log(`Selected IP index: ${selectedIPIndex}`);
 
-      // Get the token ID for the selected IP
       const parentTokenId = await getTokenIdForSelectedIP(selectedIPIndex);
 
       if (!parentTokenId) {
         throw new Error('Could not find token ID for the selected parent IP');
       }
-
-      console.log(`Found parent token ID: ${parentTokenId}`);
 
       // Convert category to uint using the utility function
       const categoryValue = getCategoryValue(formData.category);
@@ -234,9 +253,6 @@ export const RemixRegistration: React.FC = () => {
         parentIPId: parentTokenId, // Use the resolved token ID
       };
 
-      console.log('Submitting remix with data:', ipData);
-
-      // Set wallet context values
       setWalletTitle(ipData.title);
       setWalletDescription(ipData.description);
       setWalletCategory(ipData.category);

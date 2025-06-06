@@ -7,7 +7,7 @@ interface DepositsListProps {
 
 export const DepositsList: React.FC<DepositsListProps> = ({ remixes }) => {
   return (
-    <motion.div 
+    <motion.div
       key="deposits"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -50,7 +50,7 @@ export const DepositsList: React.FC<DepositsListProps> = ({ remixes }) => {
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
                 {remixes.flatMap((remix) =>
                   remix.deposits.map((deposit, index) => (
-                    <motion.tr 
+                    <motion.tr
                       key={deposit.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -86,7 +86,7 @@ export const DepositsList: React.FC<DepositsListProps> = ({ remixes }) => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
                           Confirmed
                         </span>
                       </td>

@@ -79,10 +79,10 @@ export const TransactionStatus: React.FC<TransactionStatusProps> = ({
               }}
               className="flex flex-col items-center"
             >
-              <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
                 <CheckCircleIcon
                   size={32}
-                  className="text-green-600 dark:text-green-400"
+                  className="text-blue-600 dark:text-blue-400"
                 />
               </div>
               <h3 className="text-xl font-semibold mb-2">Success!</h3>

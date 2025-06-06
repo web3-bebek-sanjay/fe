@@ -41,8 +41,6 @@ export const DepositModal: React.FC<DepositModalProps> = ({
     // Get the parent ID - could be 0, which is valid
     const parentId = remix.parentId;
 
-    console.log(`Using parent ID for royalty deposit: ${parentId}`);
-
     setError(null);
     setIsProcessing(true);
     try {
@@ -59,14 +57,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
         return;
       }
 
-      // Debug the remix object to see what's available
-      console.log('Remix object being used for deposit:', remix);
-      console.log(
-        `Depositing royalty for parent IP #${parentId} with total profit ${amount} ETH and actual payment ${royaltyAmount} ETH`
-      );
-
       // Pass the remix ID, not just the parentId, to ensure the component can find the remix object
-      // Use the remix.id value which is in the format "remix-X"
       await onDeposit(remix.id, royaltyAmount);
       onClose(); // Close the modal on success
     } catch (error: any) {

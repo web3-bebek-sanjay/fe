@@ -22,7 +22,7 @@ export const WalletConnect = () => {
 
   return isConnected && account ? (
     <Button variant="outline" className="flex items-center gap-2">
-      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
       <span className="hidden sm:inline">{formatAddress(account)}</span>
       <span className="sm:hidden">{formatAddress(account, 3)}</span>
     </Button>

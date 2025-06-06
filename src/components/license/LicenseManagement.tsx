@@ -1,10 +1,9 @@
 'use client';
 
 import type React from 'react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { IPCardGrid } from './IPCardGrid';
-import { LicenseHistory } from './LicenseHistory';
-import { SearchIcon, FilterIcon, GridIcon, ListIcon } from 'lucide-react';
+import { SearchIcon, FilterIcon } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useWallet } from '@/context/WalletContext';
 import { useLoading } from '@/context/LoadingContext';
@@ -13,7 +12,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CategoryEnum, getCategoryName } from '@/utils/enums';
 
 export const LicenseManagement: React.FC = () => {
-  const [viewMode, setViewMode] = useState<'grid' | 'history'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [txStatus, setTxStatus] = useState<
     'idle' | 'pending' | 'success' | 'error'
@@ -23,12 +21,10 @@ export const LicenseManagement: React.FC = () => {
   const { loading, setLoading } = useLoading();
   const hasFetchedRef = useRef(false);
 
-  const fetchIPAssets = async () => {
+  const fetchIPAssets = useCallback(async () => {
     if (isInitialFetch) {
-      // Just use loading state for initial fetch
       setLoading(true);
     } else {
-      // Use transaction status for subsequent operations
       setTxStatus('pending');
     }
 
@@ -36,42 +32,8 @@ export const LicenseManagement: React.FC = () => {
       await handleGetOtherIPs();
       hasFetchedRef.current = true;
 
-      // Debug logging for IP data structure
-      if (otherIPs && otherIPs.length > 0) {
-        console.log('First IP data structure:', otherIPs[0]);
-
-        // Add placeholder image URLs to IPs that don't have images
-        otherIPs.forEach((ip, index) => {
-          // If the IP doesn't have an image (imageUrl, thumbnail, fileUri, or at index 4)
-          if (!ip.imageUrl && !ip.thumbnail && !ip.fileUri && !ip[4]) {
-            // Add a placeholder image URL using the provided pattern
-            ip.imageUrl = `https://picsum.photos/seed/${index + 100}/200`;
-          }
-        });
-
-        // Log category from index 3
-        const categoryValue = otherIPs[0][3];
-        if (categoryValue !== undefined) {
-          console.log(`Category value from index 3: ${categoryValue}`);
-          console.log(
-            `Mapped category name: ${getCategoryName(categoryValue)}`
-          );
-        }
-
-        // Log license type from index 5
-        const licenseType = otherIPs[0][5];
-        if (licenseType !== undefined) {
-          console.log(`License type from index 5: ${licenseType}`);
-        }
-
-        // Log price values
-        console.log(`Price from index 6: ${otherIPs[0][6]}`);
-        console.log(`Price from index 7: ${otherIPs[0][7]}`);
-      }
-
       if (!isInitialFetch) {
         setTxStatus('success');
-        // Don't automatically reset to idle - let user see success and click Done
       }
     } catch (error) {
       console.error('Error fetching IPs:', error);
@@ -82,17 +44,14 @@ export const LicenseManagement: React.FC = () => {
       setLoading(false);
       setIsInitialFetch(false);
     }
-  };
+  }, [handleGetOtherIPs, setLoading, isInitialFetch]);
 
+  // Fix the infinite loop by only running once when connected and not already fetched
   useEffect(() => {
-    if (
-      isConnected &&
-      !hasFetchedRef.current &&
-      (!otherIPs || otherIPs.length === 0)
-    ) {
+    if (isConnected && !hasFetchedRef.current) {
       fetchIPAssets();
     }
-  }, [isConnected, handleGetOtherIPs, setLoading, otherIPs]);
+  }, [isConnected]); // Remove problematic dependencies
 
   // Helper function to extract categories from blockchain data
   const extractAndDisplayCategory = (ip: any): string => {
@@ -201,39 +160,11 @@ export const LicenseManagement: React.FC = () => {
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden mb-8">
-          <div className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
+          <div className="border-b border-slate-200 dark:border-slate-700 px-4 py-3">
             <h3 className="font-medium">IP Assets</h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded ${
-                  viewMode === 'grid' ? 'bg-slate-100 dark:bg-slate-700' : ''
-                }`}
-              >
-                <GridIcon
-                  size={18}
-                  className="text-slate-600 dark:text-slate-400"
-                />
-              </button>
-              <button
-                onClick={() => setViewMode('history')}
-                className={`p-1.5 rounded ${
-                  viewMode === 'history' ? 'bg-slate-100 dark:bg-slate-700' : ''
-                }`}
-              >
-                <ListIcon
-                  size={18}
-                  className="text-slate-600 dark:text-slate-400"
-                />
-              </button>
-            </div>
           </div>
           <div className="p-4">
-            {viewMode === 'grid' ? (
-              <IPCardGrid searchQuery={searchQuery} />
-            ) : (
-              <LicenseHistory />
-            )}
+            <IPCardGrid searchQuery={searchQuery} />
           </div>
         </div>
       )}

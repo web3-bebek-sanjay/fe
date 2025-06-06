@@ -1,33 +1,25 @@
 import '@rainbow-me/rainbowkit/styles.css';
 
 import {
-  getDefaultWallets,
+  getDefaultConfig,
   RainbowKitProvider,
-  connectorsForWallets,
   darkTheme,
   lightTheme,
 } from '@rainbow-me/rainbowkit';
-import { configureChains, createConfig } from 'wagmi';
-import { mainnet, sepolia } from 'wagmi/chains';
-import { publicProvider } from 'wagmi/providers/public';
+import { http } from 'viem';
+import { mainnet, sepolia } from 'viem/chains';
 
-// Configure the chains you want to support
-const { chains, publicClient } = configureChains(
-  [mainnet, sepolia],
-  [publicProvider()]
-);
-
-const { connectors } = getDefaultWallets({
-  appName: IPX',
+// Create wagmi config using the new API
+export const wagmiConfig = getDefaultConfig({
+  appName: 'IPX',
   projectId: 'YOUR_PROJECT_ID', // Get this from WalletConnect Cloud
-  chains,
+  chains: [mainnet, sepolia],
+  transports: {
+    [mainnet.id]: http(),
+    [sepolia.id]: http(),
+  },
+  ssr: true,
 });
 
-// Create wagmi config
-export const wagmiConfig = createConfig({
-  autoConnect: true,
-  connectors,
-  publicClient,
-});
-
-export { chains, RainbowKitProvider };
+export const chains = [mainnet, sepolia];
+export { RainbowKitProvider };

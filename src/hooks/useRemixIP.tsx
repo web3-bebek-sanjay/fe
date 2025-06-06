@@ -1,5 +1,5 @@
 // hooks/useRemixIP.ts
-import { useIPXContract } from "./useIPXContract";
+import { useIPXContract } from './useIPXContract';
 
 export function useRemixIP() {
   const { getContract } = useIPXContract();
@@ -8,7 +8,6 @@ export function useRemixIP() {
     try {
       const contract = await getContract();
       const ipData = await contract.ips(parentId);
-      console.log("Fetched IP data:", ipData);
 
       const tx = await contract.remixIP(
         ipData.title,
@@ -21,18 +20,17 @@ export function useRemixIP() {
       );
 
       const receipt = await tx.wait();
-      console.log("Transaction confirmed:", receipt);
-      alert("IP remixed successfully!");
+      alert('IP remixed successfully!');
     } catch (err: any) {
       alert(`Error: ${err.message}`);
       console.error(err.message);
 
-      if (err?.code === "CALL_EXCEPTION") {
+      if (err?.code === 'CALL_EXCEPTION') {
         alert(
-          "Transaksi gagal: kemungkinan token ID tidak valid atau tidak bisa di-remix."
+          'Transaksi gagal: kemungkinan token ID tidak valid atau tidak bisa di-remix.'
         );
       } else {
-        alert("Gagal remix NFT. Lihat console untuk detail.");
+        alert('Gagal remix NFT. Lihat console untuk detail.');
       }
     }
   };

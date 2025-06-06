@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XIcon } from 'lucide-react';
 import { useWallet } from '@/context/WalletContext';
-import Image from 'next/image';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { ethers } from 'ethers';
 import { TransactionStatus } from '../ui/TransactionStatus';
 import { getCategoryName } from '@/utils/enums';
@@ -14,7 +14,7 @@ import { getCategoryName } from '@/utils/enums';
 const getLicenseTypes = (licenseType: number): string[] => {
   switch (licenseType) {
     case 0:
-      return ['personal']; // Changed from 'buy' to 'personal' to match your LicenseType enum
+      return ['personal'];
     case 1:
       return ['rent'];
     case 2:
@@ -32,6 +32,7 @@ interface LicenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   ip: any; // Change to 'any' to support both mock and blockchain data
+  onTransactionComplete?: () => void; // Optional callback for transaction completion
 }
 
 // Create a utility function to format prices consistently
@@ -73,13 +74,13 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   isOpen,
   onClose,
   ip,
+  onTransactionComplete,
 }) => {
-  const { isConnected, handleBuyIP, handleRentIP, setTokenId, tokenId, testData } = useWallet();
+  const { isConnected, handleBuyIP, handleRentIP, setTokenId, tokenId } =
+    useWallet();
 
   // Handle both data formats - structured object and array-like blockchain data
   const extractTokenId = (ipObject: any): string => {
-    console.log('Extracting token ID from:', ipObject);
-
     // Try different possible token ID sources
     if (ipObject.tokenId !== undefined) {
       return ipObject.tokenId.toString();
@@ -88,17 +89,6 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
     } else {
       // Search for the token ID in the ownerToTokenIds mapping
       // This is more complex and would require a separate contract call
-      console.warn('Could not directly extract token ID from IP object');
-
-      // For debugging, log the full object structure
-      console.log(
-        'Full IP structure:',
-        JSON.stringify(ipObject, (key, value) => {
-          if (typeof value === 'bigint') return value.toString() + 'n';
-          return value;
-        })
-      );
-
       return '';
     }
   };
@@ -109,15 +99,6 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   const description = ip.description || ip[2] || '';
   const category = extractCategory(ip);
 
-  // Log category info for debugging
-  console.log('Category information:', {
-    raw: ip.category || ip[3],
-    extracted: category,
-  });
-
-  // console.log("try to console data", ip);
-
-  // Get price based on data format
   let price = 0;
   try {
     // Create a custom replacer for JSON.stringify that handles BigInt
@@ -128,13 +109,10 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
       return value;
     };
 
-    console.log('Full IP object:', JSON.stringify(ip, jsonReplacer)); // Use the replacer
-
     try {
       // Check real contract data format first - IP with blockchain format uses index 6 for basePrice
       if (ip && ip[6] !== undefined && typeof ip[6] === 'bigint') {
         price = parseFloat(ethers.formatEther(ip[6]));
-        console.log('Found price at index 6:', ip[6], 'Converted to:', price);
       }
       // Then try standard object properties
       else if (ip && ip.basePrice !== undefined) {
@@ -163,14 +141,6 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
     // console.error('Error formatting price:', error);
   }
 
-  // Add enhanced logging
-  console.log('IP object type:', typeof ip);
-  console.log('IP object keys:', ip ? Object.keys(ip) : 'null/undefined');
-  console.log('Index 6 (basePrice):', ip?.[6]);
-  console.log('Index 7:', ip?.[7]);
-  console.log('Raw basePrice property:', ip?.basePrice);
-  console.log('Parsed final price:', price);
-
   // Updated license types detection
   const availableLicenseTypes = Array.isArray(ip.licenseTypes)
     ? ip.licenseTypes
@@ -191,23 +161,12 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
         )
       );
 
-  // Add debug logging
-  console.log('Raw licenseopt value:', ip.licenseopt || ip[5]);
-  console.log('Determined license types:', availableLicenseTypes);
-
-  console.log(
-    'Initial license type:',
-    availableLicenseTypes.includes('buy') ? 'buy' : 'rent'
-  );
-
-  // Get image URL safely
   const imageUrl =
     ip.thumbnail ||
     ip.fileUri ||
     ip[4] || // File upload is at index 4
     `https://picsum.photos/seed/${id || 'default'}/200`;
 
-  // Set default license type safely
   const [licenseType, setLicenseType] = useState<'buy' | 'rent' | 'personal'>(
     availableLicenseTypes.includes('buy')
       ? 'buy'
@@ -223,7 +182,6 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
     'idle' | 'pending' | 'success' | 'error'
   >('idle');
 
-  // Set token ID when modal opens
   useEffect(() => {
     if (isOpen && id) {
       setTokenId(id);
@@ -241,8 +199,6 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
     }
 
     try {
-      console.log(`Processing ${licenseType} for IP with token ID: ${id}`);
-
       if (licenseType === 'buy' || licenseType === 'personal') {
         // Get the buy price directly from index 6 or fall back to calculated price
         const buyPrice =
@@ -250,17 +206,11 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
             ? parseFloat(ethers.formatEther(ip[6]))
             : calculatePrice();
 
-        console.log(`Buying IP #${id} with ${buyPrice} ETH`);
         // Pass the IP's ID directly to the buy function
         await handleBuyIP(buyPrice.toString(), id);
-          
       } else if (licenseType === 'rent') {
         // Calculate the price based on duration
         const rentTotal = calculatePrice();
-
-        console.log(
-          `Renting IP #${id} for ${duration} days at ${rentTotal} ETH`
-        );
 
         // Convert to string and ensure it's formatted correctly for ethers
         const rentTotalStr = rentTotal.toString();
@@ -270,7 +220,13 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
       }
 
       setTxStatus('success');
-      // No longer need this setTimeout as the TransactionStatus component handles it
+
+      // Call the transaction completion callback if provided
+      if (onTransactionComplete) {
+        setTimeout(() => {
+          onTransactionComplete();
+        }, 2000); // Wait a bit before refreshing to allow transaction to be processed
+      }
     } catch (error: any) {
       setTxStatus('error');
     }
@@ -336,10 +292,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
   };
 
   const licenseoptValue = getLicenseoptValue(ip);
-  console.log('Processed licenseopt value:', licenseoptValue);
-
   const licenseTypes = getLicenseTypes(licenseoptValue);
-  console.log('Determined license types:', licenseTypes);
 
   return (
     <AnimatePresence>
@@ -364,14 +317,13 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
             className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
           >
             <div className="relative">
-              <div className="w-full h-48 relative">
-                <Image
-                  src={"/placeholder.svg"}
-                  alt={title}
-                  fill
-                  className="object-cover"
-                />
-              </div>
+              <OptimizedImage
+                src={imageUrl}
+                alt={title}
+                aspectRatio="video"
+                className="w-full h-48 object-cover"
+                fallbackSrc="/placeholder.svg"
+              />
               <button
                 onClick={onClose}
                 className="absolute top-2 right-2 p-1 rounded-full bg-black/20 hover:bg-black/40 text-white transition-colors"
@@ -395,7 +347,12 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({
                     onReset={() => {
                       setTxStatus('idle');
                       if (txStatus === 'success') {
-                        setTimeout(() => onClose(), 500);
+                        setTimeout(() => {
+                          onClose();
+                          if (onTransactionComplete) {
+                            onTransactionComplete();
+                          }
+                        }, 500);
                       }
                     }}
                     successMessage={`You have successfully ${

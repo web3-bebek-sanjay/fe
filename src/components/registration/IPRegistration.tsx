@@ -29,6 +29,9 @@ export interface IPFormData {
   file: File | null;
   filePreview: string;
   parentIPId?: string;
+  // Supabase storage properties
+  uploadedUrl?: string;
+  uploadedPath?: string;
 }
 
 export const IPRegistration: React.FC = () => {
@@ -148,16 +151,28 @@ export const IPRegistration: React.FC = () => {
         formData.royaltyPercentage
       ).toString();
 
-      // Generate a placeholder file reference instead of using the actual file
-      const filePlaceholder =
-        formData.filePreview || 'https://placeholder-ipfs.com/image.png';
+      // Use the uploaded Supabase URL if available, otherwise use filePreview, then fallback to placeholder
+      const fileUploadUrl =
+        formData.uploadedUrl ||
+        formData.filePreview ||
+        'https://placeholder-ipfs.com/image.png';
+
+      console.log('IP Registration: Using file URL:', fileUploadUrl);
+      console.log(
+        'IP Registration: formData.uploadedUrl:',
+        formData.uploadedUrl
+      );
+      console.log(
+        'IP Registration: formData.filePreview:',
+        formData.filePreview
+      );
 
       const ipData = {
         title: formData.title,
         description: formData.description,
         category: categoryValue.toString(), // Convert the enum value to string for the contract
         tag: '',
-        fileUpload: filePlaceholder, 
+        fileUpload: fileUploadUrl,
         licenseopt: licenseTypeValue, // Changed from licenseType to licenseopt
         basePrice: basePriceInWei,
         rentPrice: rentPriceInWei,

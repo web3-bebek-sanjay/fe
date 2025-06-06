@@ -5,6 +5,7 @@ import { UploadIcon, SearchIcon, XIcon } from 'lucide-react';
 import { IPFormData } from '../remix/RemixRegistration';
 import { useWallet } from '@/context/WalletContext';
 import { CategoryEnum, getCategoryValue, getCategoryName } from '@/utils/enums';
+import { useFileUpload } from '@/hooks/useFileUpload';
 
 interface RemixRegistrationFormProps {
   formData: IPFormData;
@@ -17,7 +18,8 @@ interface RemixRegistrationFormProps {
     owner: string;
     title: string;
     description: string;
-    royaltyPercentage?: string; // Add this
+    royaltyPercentage?: string;
+    imageUrl?: string; // Add imageUrl to the interface
   }>;
   isProcessing?: boolean;
 }
@@ -28,6 +30,7 @@ interface ParentIP {
   creator: string;
   thumbnail: string;
   royaltyPercentage?: string;
+  imageUrl?: string; // Add imageUrl to match actual data structure
   // Could add royalty and pricing info here if needed for display
 }
 
@@ -47,6 +50,18 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
   );
   // New state for default displayed parent IPs
   const [defaultParentIPs, setDefaultParentIPs] = useState<ParentIP[]>([]);
+
+  // File upload hook
+  const {
+    isUploading,
+    uploadProgress,
+    error: uploadError,
+    uploadedUrl,
+    uploadedPath,
+    uploadFile,
+    deleteFile: deleteUploadedFile,
+    resetUploadState,
+  } = useFileUpload();
 
   // Categories aligned with the enum pattern
   const categories = Object.entries(CategoryEnum)
@@ -72,7 +87,10 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
         id: option.value,
         title: option.title,
         creator: option.owner,
-        thumbnail: 'https://picsum.photos/seed/' + option.value + '/200',
+        thumbnail:
+          option.imageUrl || `https://picsum.photos/seed/${option.value}/200`,
+        imageUrl:
+          option.imageUrl || `https://picsum.photos/seed/${option.value}/200`,
         royaltyPercentage: option.royaltyPercentage || '20',
       }));
 
@@ -97,7 +115,10 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
         id: option.value,
         title: option.title,
         creator: option.owner,
-        thumbnail: 'https://picsum.photos/seed/' + option.value + '/200',
+        thumbnail:
+          option.imageUrl || `https://picsum.photos/seed/${option.value}/200`,
+        imageUrl:
+          option.imageUrl || `https://picsum.photos/seed/${option.value}/200`,
         royaltyPercentage: option.royaltyPercentage || '20', // Include royalty percentage
       }));
 
@@ -123,9 +144,14 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
     setSearchResults([]);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Reset any previous upload state
+    resetUploadState();
+
+    // Create local preview for immediate display
     const reader = new FileReader();
     reader.onload = (event) => {
       onChange({
@@ -134,6 +160,22 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
       });
     };
     reader.readAsDataURL(file);
+
+    // Upload to Supabase
+    try {
+      const result = await uploadFile(file, 'remix-files');
+      if (result.success) {
+        // Update form data with uploaded URL and path
+        onChange({
+          file,
+          filePreview: result.url,
+          uploadedUrl: result.url,
+          uploadedPath: result.path,
+        });
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
   };
 
   return (
@@ -211,9 +253,13 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
                     onClick={() => selectParentIP(ip)}
                   >
                     <img
-                      src={ip.thumbnail}
+                      src={ip.imageUrl || ip.thumbnail}
                       alt={ip.title}
                       className="w-10 h-10 rounded object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = `https://picsum.photos/seed/${ip.id}/200`;
+                      }}
                     />
                     <div>
                       <div className="font-medium">{ip.title}</div>
@@ -242,9 +288,13 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
                   onClick={() => selectParentIP(ip)}
                 >
                   <img
-                    src={ip.thumbnail}
+                    src={ip.imageUrl || ip.thumbnail}
                     alt={ip.title}
                     className="w-10 h-10 rounded object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://picsum.photos/seed/${ip.id}/200`;
+                    }}
                   />
                   <div>
                     <div className="font-medium">{ip.title}</div>
@@ -263,9 +313,13 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
         {selectedParentIP ? (
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900 p-3 rounded-lg flex items-center gap-3">
             <img
-              src={selectedParentIP.thumbnail}
+              src={selectedParentIP.imageUrl || selectedParentIP.thumbnail}
               alt={selectedParentIP.title}
               className="w-12 h-12 rounded object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = `https://picsum.photos/seed/${selectedParentIP.id}/200`;
+              }}
             />
             <div className="flex-1">
               <div className="font-medium">{selectedParentIP.title}</div>
@@ -385,7 +439,42 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
             }
             style={{ cursor: isProcessing ? 'not-allowed' : 'pointer' }}
           >
-            {formData.filePreview ? (
+            {isUploading ? (
+              <div className="flex flex-col items-center">
+                <div className="w-32 h-32 mb-4 flex items-center justify-center">
+                  <div className="relative">
+                    <svg
+                      className="animate-spin h-12 w-12 text-blue-600"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-medium text-blue-600">
+                        {uploadProgress}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm text-blue-600 dark:text-blue-400">
+                  Uploading to storage...
+                </div>
+              </div>
+            ) : formData.filePreview ? (
               <div className="flex flex-col items-center">
                 <div className="w-32 h-32 mb-4 overflow-hidden rounded-lg">
                   <img
@@ -397,14 +486,29 @@ export const RemixRegistrationForm: React.FC<RemixRegistrationFormProps> = ({
                 <div className="text-sm text-slate-600 dark:text-slate-400">
                   {formData.file?.name}
                 </div>
+                {uploadedUrl && (
+                  <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    ✓ Uploaded to storage
+                  </div>
+                )}
+                {uploadError && (
+                  <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                    Upload failed: {uploadError}
+                  </div>
+                )}
                 {!isProcessing && (
                   <button
                     type="button"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
+                      if (uploadedPath) {
+                        await deleteUploadedFile(uploadedPath);
+                      }
                       onChange({
                         file: null,
                         filePreview: '',
+                        uploadedUrl: undefined,
+                        uploadedPath: undefined,
                       });
                     }}
                     className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"

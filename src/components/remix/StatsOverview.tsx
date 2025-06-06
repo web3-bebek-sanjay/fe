@@ -1,5 +1,10 @@
 import { motion } from 'framer-motion';
-import { BarChart2, TrendingUp, DollarSign, ArrowRightIcon } from 'lucide-react';
+import {
+  BarChart2,
+  TrendingUp,
+  DollarSign,
+  ArrowRightIcon,
+} from 'lucide-react';
 
 interface StatsOverviewProps {
   totalRemixes: number;
@@ -16,7 +21,7 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
   const percentChanges = {
     remixes: 8.3,
     sales: 12.7,
-    royalties: 6.2
+    royalties: 6.2,
   };
 
   return (
@@ -42,7 +47,7 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
           </div>
         </div>
         <div className="flex items-center mt-4">
-          <div className="text-xs font-medium px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+          <div className="text-xs font-medium px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
             +{percentChanges.remixes}%
           </div>
           <span className="text-xs text-slate-500 dark:text-slate-400 ml-1.5">
@@ -68,14 +73,19 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
             </div>
           </div>
           <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-            <TrendingUp size={20} className="text-purple-600 dark:text-purple-400" />
+            <TrendingUp
+              size={20}
+              className="text-purple-600 dark:text-purple-400"
+            />
           </div>
         </div>
         <div className="mt-4">
           <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-purple-600 rounded-full"
-              style={{ width: `${Math.min(parseFloat(totalSales) * 10, 100)}%` }}
+              style={{
+                width: `${Math.min(parseFloat(totalSales) * 10, 100)}%`,
+              }}
             />
           </div>
           <div className="flex justify-between mt-1.5 text-xs text-slate-500 dark:text-slate-400">

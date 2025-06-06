@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { UploadIcon } from 'lucide-react';
 import { IPFormData } from './IPRegistration';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import {
   LicenseType,
   LicenseTypeString,
@@ -27,6 +28,18 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   selectedLicenseOptions,
   setSelectedLicenseOptions,
 }) => {
+  // File upload hook
+  const {
+    isUploading,
+    uploadProgress,
+    error: uploadError,
+    uploadedUrl,
+    uploadedPath,
+    uploadFile,
+    deleteFile: deleteUploadedFile,
+    resetUploadState,
+  } = useFileUpload();
+
   const categories = Object.entries(CategoryEnum)
     .filter(([key]) => isNaN(Number(key)))
     .map(([key, value]) => ({
@@ -34,9 +47,14 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       name: key,
     }));
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Reset any previous upload state
+    resetUploadState();
+
+    // Create local preview for immediate display
     const reader = new FileReader();
     reader.onload = (event) => {
       onChange({
@@ -45,6 +63,22 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       });
     };
     reader.readAsDataURL(file);
+
+    // Upload to Supabase
+    try {
+      const result = await uploadFile(file, 'ip-files');
+      if (result.success) {
+        // Update form data with uploaded URL and path
+        onChange({
+          file,
+          filePreview: result.url,
+          uploadedUrl: result.url,
+          uploadedPath: result.path,
+        });
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
   };
 
   const toggleLicenseOption = (option: LicenseTypeString) => {
@@ -100,7 +134,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       <div
         className={`p-4 rounded-lg mb-6 ${
           isPersonal && !isCommercial
-            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+            ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
             : isRent || isRentBuySelected
             ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'
             : 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800'
@@ -109,7 +143,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
         <p
           className={`text-sm ${
             isPersonal && !isCommercial
-              ? 'text-green-800 dark:text-green-300'
+              ? 'text-blue-800 dark:text-blue-300'
               : isRentBuySelected
               ? 'text-orange-800 dark:text-orange-300'
               : isRentSelected
@@ -232,7 +266,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           >
             <option value="">Select a category</option>
             {categories.map((category) => (
-              <option key={category.id} value={category.id}>
+              <option key={category.id} value={category.name}>
                 {category.name}
               </option>
             ))}

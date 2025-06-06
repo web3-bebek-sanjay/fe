@@ -47,8 +47,6 @@ export const RemixManagement: React.FC = () => {
   // Transform blockchain data to our Remix format when myRemixes changes
   useEffect(() => {
     if (myRemixes && myRemixes.length > 0) {
-      console.log('Detected myRemixes change with length:', myRemixes.length);
-
       // First transform the data
       transformRemixData();
       fetchParentIPDetails();
@@ -75,11 +73,6 @@ export const RemixManagement: React.FC = () => {
       return;
     }
 
-    console.log(
-      'Starting fetchParentIPDetails with myRemixes length:',
-      myRemixes.length
-    );
-
     // Create a Set to store unique parent IDs
     const uniqueParentIds = new Set<string>();
 
@@ -104,7 +97,6 @@ export const RemixManagement: React.FC = () => {
 
         // Always include the parentId, even if it's "0" (original IP)
         if (parentId !== null) {
-          console.log(`Found parentId: ${parentId} for remix`);
           uniqueParentIds.add(parentId);
         }
       } catch (err) {
@@ -113,10 +105,8 @@ export const RemixManagement: React.FC = () => {
     }
 
     const parentIdsArray = Array.from(uniqueParentIds);
-    console.log('Unique parent IPs to fetch:', parentIdsArray);
 
     if (parentIdsArray.length === 0) {
-      console.log('No parent IPs to fetch');
       setIsLoading(false);
       return;
     }
@@ -128,7 +118,6 @@ export const RemixManagement: React.FC = () => {
       // For Promise.all, we need to map to an array of promises
       const fetchPromises = parentIdsArray.map(async (parentId) => {
         try {
-          console.log(`Fetching details for parent IP ${parentId}`);
           const details = await getIPDetails(parentId);
 
           if (details) {
@@ -165,8 +154,6 @@ export const RemixManagement: React.FC = () => {
         }
       });
 
-      console.log('Final parent details object:', newParentDetails);
-
       // Only update the state once at the end
       setParentIPDetails(newParentDetails);
     } catch (error) {
@@ -183,7 +170,6 @@ export const RemixManagement: React.FC = () => {
       headerGetterContract(async (contract) => {
         try {
           const result = await contract.getIP(BigInt(tokenId));
-          console.log(`Raw parent IP #${tokenId} details:`, result);
           resolve(result);
         } catch (error) {
           console.error(`Error fetching IP #${tokenId}:`, error);
@@ -195,14 +181,9 @@ export const RemixManagement: React.FC = () => {
 
   // Transform blockchain remix data to component format
   const transformRemixData = () => {
-    console.log('Starting to transform remix data from:', myRemixes);
-
-    // Initialize tokenIdMapping if needed
     const mapping: { [key: string]: string } = {};
 
     const formattedRemixes = myRemixes.map((remix, index) => {
-      console.log(`Processing remix at index ${index}:`, remix);
-
       // Extract tokenId and parentId
       let tokenId: string = '';
       let parentId: string = '';
@@ -241,18 +222,11 @@ export const RemixManagement: React.FC = () => {
           // We don't have a direct token ID, so we'll generate a predictable one
           tokenId = `remix-${parentId}-${index}`;
         }
-
-        console.log(
-          `Using array structure. TokenId: ${tokenId}, ParentId: ${parentId}`
-        );
       } else {
         // Fallback to direct property access
         remixData = remix;
         tokenId = remix.tokenId ? remix.tokenId.toString() : `remix-${index}`;
         parentId = remix.parentId ? remix.parentId.toString() : '0';
-        console.log(
-          `Using direct property access. TokenId: ${tokenId}, ParentId: ${parentId}`
-        );
       }
 
       // Store the mapping for future reference
@@ -281,16 +255,6 @@ export const RemixManagement: React.FC = () => {
       // All IPs are treated as remixes, regardless of parentId
       const isOriginal = false;
 
-      console.log('Extracted remix data:', {
-        tokenId,
-        parentId,
-        title,
-        royaltyRate,
-        description,
-        coverImage,
-        isRemix: true,
-      });
-
       // Create a standardized Remix object
       return {
         id: `remix-${index}`,
@@ -312,19 +276,12 @@ export const RemixManagement: React.FC = () => {
 
     setTokenIdMapping(mapping);
     setRemixes(formattedRemixes);
-    console.log('Transformed remixes:', formattedRemixes);
-    console.log('Token ID mapping:', mapping);
   };
 
   // Update remixes with parent IP details once we have them
   useEffect(() => {
     if (remixes.length === 0 || Object.keys(parentIPDetails).length === 0)
       return;
-
-    console.log(
-      'Running update effect with parentDetails:',
-      Object.keys(parentIPDetails)
-    );
 
     // Create a new array to store updated remixes
     const updatedRemixes = remixes.map((remix) => {
@@ -375,9 +332,6 @@ export const RemixManagement: React.FC = () => {
       JSON.stringify(remixes, bigIntReplacer);
 
     if (hasChanged) {
-      console.log(
-        'Updated remixes with parent details - actual change detected'
-      );
       setRemixes((prevRemixes) => {
         // If the arrays are identical in content, return the previous array to avoid re-renders
         const areRemixesEqual =
@@ -385,8 +339,6 @@ export const RemixManagement: React.FC = () => {
           JSON.stringify(prevRemixes, bigIntReplacer);
         return areRemixesEqual ? prevRemixes : updatedRemixes;
       });
-    } else {
-      console.log('No changes detected in remixes, skipping update');
     }
   }, [parentIPDetails]); // Only depend on parentIPDetails, not remixes
 
@@ -403,15 +355,11 @@ export const RemixManagement: React.FC = () => {
     .toFixed(2);
 
   const handleDepositClick = (remix: Remix) => {
-    // Make sure we're passing the full remix object, not just the ID
-    console.log(`Opening deposit modal for remix:`, remix);
     setSelectedRemix(remix);
     setShowDepositModal(true);
   };
 
   const handleDeposit = async (remixId: string, amount: string) => {
-    console.log(`Handling deposit for remixId: ${remixId}, amount: ${amount}`);
-
     // For contract requirement: parentId < remixTokenId
     // We need to find a valid remix token ID (not 0) and its corresponding parent ID
 
@@ -448,7 +396,6 @@ export const RemixManagement: React.FC = () => {
     console.log(`Using remixTokenId: ${actualRemixTokenId} for deposit`);
 
     try {
-      console.log(`Depositing royalty for tokenId: ${actualRemixTokenId}`);
       await handleDepositRoyalty(actualRemixTokenId, amount);
 
       // Update UI with optimistic update

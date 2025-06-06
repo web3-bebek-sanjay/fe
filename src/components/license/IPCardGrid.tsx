@@ -74,7 +74,8 @@ interface IPCardGridProps {
 export const IPCardGrid: React.FC<IPCardGridProps> = ({ searchQuery }) => {
   const [selectedIP, setSelectedIP] = useState<any | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { otherIPs, isConnected } = useWallet();
+  const { otherIPs, isConnected, handleGetOtherIPs, handleGetMyIPs } =
+    useWallet();
   const { loading } = useLoading();
 
   // Use the fetched data or fall back to mock data if empty
@@ -90,13 +91,13 @@ export const IPCardGrid: React.FC<IPCardGridProps> = ({ searchQuery }) => {
         ? ip.category
         : getCategoryName(ip.category);
     }
-    
+
     // Then try array access at index 3 (from blockchain contract)
     if (ip[3] !== undefined) {
       const categoryValue = ip[3];
       return getCategoryName(categoryValue);
     }
-    
+
     // Default fallback
     return 'Other';
   };
@@ -118,7 +119,7 @@ export const IPCardGrid: React.FC<IPCardGridProps> = ({ searchQuery }) => {
 
       // Get owner address
       const owner = ip.owner || ip[0] || '';
-      
+
       // Get description
       const description = ip.description || ip[2] || '';
 
@@ -135,10 +136,7 @@ export const IPCardGrid: React.FC<IPCardGridProps> = ({ searchQuery }) => {
   // Log IP data for debugging purposes
   useEffect(() => {
     if (ipData.length > 0) {
-      console.log("IPCardGrid: First IP data structure:", ipData[0]);
       if (ipData[0][3] !== undefined) {
-        console.log(`IPCardGrid: Category value from first IP (index 3): ${ipData[0][3]}`);
-        console.log(`IPCardGrid: Mapped category name: ${getCategoryName(ipData[0][3])}`);
       }
     }
   }, [ipData]);
@@ -146,6 +144,16 @@ export const IPCardGrid: React.FC<IPCardGridProps> = ({ searchQuery }) => {
   const handleCardClick = (ip: any) => {
     setSelectedIP(ip);
     setIsModalOpen(true);
+  };
+
+  // Handle transaction completion - refresh data
+  const handleTransactionComplete = async () => {
+    try {
+      // Refresh both other IPs and my IPs to reflect new ownership
+      await Promise.all([handleGetOtherIPs(), handleGetMyIPs()]);
+    } catch (error) {
+      console.error('Error refreshing data after transaction:', error);
+    }
   };
 
   // Skeleton loader for IP cards
@@ -213,6 +221,8 @@ export const IPCardGrid: React.FC<IPCardGridProps> = ({ searchQuery }) => {
               key={ip.tokenId?.toString() || ip.id || index}
               ip={ip}
               onClick={() => handleCardClick(ip)}
+              showActions={true}
+              onTransactionComplete={handleTransactionComplete}
             />
           ))}
         </div>
@@ -220,8 +230,12 @@ export const IPCardGrid: React.FC<IPCardGridProps> = ({ searchQuery }) => {
       {selectedIP && (
         <LicenseModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedIP(null);
+          }}
           ip={selectedIP}
+          onTransactionComplete={handleTransactionComplete}
         />
       )}
     </div>

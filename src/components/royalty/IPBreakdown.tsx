@@ -31,7 +31,6 @@ export const IPBreakdown: React.FC<IPBreakdownProps> = ({ dateRange }) => {
       // Simulate a blockchain transaction
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      console.log(`${operationType} royalty operation on IP ${ipId}`);
       setTxStatus('success');
 
       // Reset after success
@@ -195,7 +194,7 @@ export const IPBreakdown: React.FC<IPBreakdownProps> = ({ dateRange }) => {
             <div className="mt-2 flex justify-end">
               <button
                 onClick={() => handleRoyaltyOperation('withdraw', item.id)}
-                className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md"
+                className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
               >
                 Withdraw Royalties
               </button>

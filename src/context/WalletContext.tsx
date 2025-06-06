@@ -259,7 +259,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         const ipTitle = data?.title || title;
         const ipDescription = data?.description || description;
         const ipCategory = data?.category || category;
-        const ipFileUpload = '';
+        const ipFileUpload = data?.fileUpload || fileUpload;
         const ipLicenseopt =
           data?.licenseopt !== undefined ? data?.licenseopt : licenseopt;
         const ipBasePrice = data?.basePrice || basePrice;

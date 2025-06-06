@@ -2,7 +2,7 @@
 
 import type React from 'react';
 import { motion } from 'framer-motion';
-import { FileTextIcon, DollarSignIcon, HistoryIcon } from 'lucide-react';
+import { FileTextIcon, DollarSignIcon } from 'lucide-react';
 import { LicenseIcon } from './icons/LicenseIcon';
 import { useEffect, useState } from 'react';
 
@@ -53,7 +53,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     {
       id: 'registerRemix',
       name: 'Remix Registration',
-      icon: <FileTextIcon size={18} />,     
+      icon: <FileTextIcon size={18} />,
     },
     {
       id: 'royalty',
@@ -65,11 +65,6 @@ export const Navigation: React.FC<NavigationProps> = ({
       name: 'Your Remixes',
       icon: <FileTextIcon size={18} />,
     },
-    {
-      id: 'history',
-      name: 'History',
-      icon: <HistoryIcon size={18} />,
-    }
   ];
   const handleTabClick = (tabId: string) => {
     setActiveTab(tabId);

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { RoyaltyDashboard } from './RoyaltyDashboard';
 import { RoyaltyChart } from './RoyaltyChart';
 import { IPBreakdown } from './IPBreakdown';
+import { OptimizedImage } from '../ui/OptimizedImage';
 import {
   CalendarIcon,
   FilterIcon,
@@ -13,6 +14,9 @@ import {
   MoreHorizontalIcon,
   DollarSignIcon,
   InfoIcon,
+  TrendingUpIcon,
+  WalletIcon,
+  CopyIcon,
 } from 'lucide-react';
 import { useWallet } from '@/context/WalletContext';
 import { ethers, Contract } from 'ethers';
@@ -40,10 +44,13 @@ interface OwnedIP {
   category: string;
   type: 'personal' | 'rent' | 'remix';
   imageUrl: string;
+  fallbackImageUrl?: string;
   earnings: number;
   pendingRoyalty?: string;
   tokenId?: string;
   createdAt: string;
+  description?: string;
+  fileUpload?: string;
 }
 
 // Add a RoyaltyClaimCard component before the RoyaltyManagement component
@@ -66,13 +73,6 @@ const RoyaltyClaimCard = ({
   const pendingStr = royaltyInfo.pending || '0';
   const pendingAmount = Number(pendingStr);
 
-  // Log for debugging
-  console.log(`RoyaltyClaimCard for token #${tokenId}:`, {
-    pendingStr,
-    pendingAmount,
-    isYourIP: royaltyInfo.isYourIP,
-  });
-
   // Return null if no pending amount or invalid value
   if (isNaN(pendingAmount) || pendingAmount <= 0) {
     return null;
@@ -82,13 +82,13 @@ const RoyaltyClaimCard = ({
   const isReadOnly = royaltyInfo.isYourIP === false;
 
   return (
-    <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-700 rounded-lg mb-4">
+    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700 rounded-lg mb-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium text-green-700 dark:text-green-400">
+          <h3 className="text-sm font-medium text-blue-700 dark:text-blue-400">
             {isReadOnly ? 'Royalties for This IP' : 'Royalties Available!'}
           </h3>
-          <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+          <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
             {isReadOnly ? 'This IP has ' : 'You have '}
             <span className="font-bold">{royaltyInfo.pending} ETH</span> in
             royalties {isReadOnly ? '' : 'ready to claim'}
@@ -100,7 +100,7 @@ const RoyaltyClaimCard = ({
             onClick={() => onClaimRoyalty(tokenId)}
             disabled={isLoading}
             className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white 
-              ${isLoading ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'}`}
+              ${isLoading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'}`}
           >
             {isLoading ? (
               <>
@@ -116,8 +116,8 @@ const RoyaltyClaimCard = ({
           </button>
         )}
       </div>
-      <div className="mt-2 pt-2 border-t border-green-100 dark:border-green-800">
-        <p className="text-xs text-green-600 dark:text-green-500">
+      <div className="mt-2 pt-2 border-t border-blue-100 dark:border-blue-800">
+        <p className="text-xs text-blue-600 dark:text-blue-500">
           Previously claimed: {royaltyInfo.claimed || '0'} ETH
         </p>
       </div>
@@ -149,17 +149,16 @@ const RoyaltySummary = ({
     Number(globalRoyalty.pending) > 0 &&
     globalRoyalty.isYourIP === true
   ) {
-    console.log('Found global royalties in token #0:', globalRoyalty.pending);
     return (
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 mb-6">
         <h3 className="text-lg font-semibold mb-3">Claimable Royalties</h3>
-        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-700 rounded-lg mb-4">
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700 rounded-lg mb-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-medium text-green-700 dark:text-green-400">
+              <h3 className="text-sm font-medium text-blue-700 dark:text-blue-400">
                 Central Royalty Pool
               </h3>
-              <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+              <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
                 You have{' '}
                 <span className="font-bold">{globalRoyalty.pending} ETH</span>{' '}
                 in accumulated royalties ready to claim
@@ -169,9 +168,7 @@ const RoyaltySummary = ({
               onClick={() => onClaimRoyalty('0')}
               disabled={isLoading}
               className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white 
-                ${
-                  isLoading ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'
-                }`}
+                ${isLoading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'}`}
             >
               {isLoading ? (
                 <>
@@ -186,8 +183,8 @@ const RoyaltySummary = ({
               )}
             </button>
           </div>
-          <div className="mt-2 pt-2 border-t border-green-100 dark:border-green-800">
-            <p className="text-xs text-green-600 dark:text-green-500">
+          <div className="mt-2 pt-2 border-t border-blue-100 dark:border-blue-800">
+            <p className="text-xs text-blue-600 dark:text-blue-500">
               Previously claimed: {globalRoyalty.claimed} ETH
             </p>
           </div>
@@ -319,10 +316,6 @@ export const RoyaltyManagement: React.FC = () => {
       Number(specificRoyalty.pending) === 0 &&
       globalRoyalty.isYourIP === true
     ) {
-      // Only log global royalty if token #0 belongs to the user
-      console.log(
-        `Using global royalty from token #0 for token #${tokenId}: ${globalRoyalty.pending} ETH`
-      );
       return {
         ...globalRoyalty,
         isYourIP: true,
@@ -347,7 +340,6 @@ export const RoyaltyManagement: React.FC = () => {
         (tabType === 'all' || tabType === 'personal' || tabType === 'rent') &&
         !dataLoadStatus.personal
       ) {
-        console.log('Fetching regular IPs data...');
         await handleGetMyIPs();
         setDataLoadStatus((prev) => ({ ...prev, personal: true }));
       }
@@ -356,7 +348,6 @@ export const RoyaltyManagement: React.FC = () => {
         (tabType === 'all' || tabType === 'rent') &&
         !dataLoadStatus.rentals
       ) {
-        console.log('Fetching rental data for my IPs...');
         await handleGetRentalsFromMyIP();
         setDataLoadStatus((prev) => ({ ...prev, rentals: true }));
       }
@@ -460,8 +451,6 @@ export const RoyaltyManagement: React.FC = () => {
 
         // 3. Get all rentals from my IPs using getListRentFromMyIp
         try {
-          console.log('Fetching rental data from my IPs...');
-          // Use the wallet context function to handle rentals
           await handleGetRentalsFromMyIP();
           setDataLoadStatus((prev) => ({ ...prev, rentals: true }));
         } catch (error) {
@@ -470,25 +459,18 @@ export const RoyaltyManagement: React.FC = () => {
 
         // 4. Get all remixes of my IPs using getMyIPsRemix
         try {
-          console.log('Fetching remixes of my IPs...');
           const remixes = await contract.getMyIPsRemix(account);
-          console.log('Remixes of my IPs:', remixes);
 
           // Process each remix to get its royalty info
           for (const remix of remixes) {
             if (remix && remix.parentId) {
               const parentId = remix.parentId.toString();
-              console.log(`Found remix with parent ID: ${parentId}`);
 
               // 5. Get royalty info for each parent ID
               try {
                 const [pending, claimed] = await contract.getRoyalty(
                   BigInt(parentId)
                 );
-                console.log(`Royalty for parent #${parentId}:`, {
-                  pending: ethers.formatEther(pending),
-                  claimed: ethers.formatEther(claimed),
-                });
 
                 // Update royalty info state
                 setRoyaltyInfo((prev) => ({
@@ -509,7 +491,6 @@ export const RoyaltyManagement: React.FC = () => {
             }
           }
 
-          // Use the wallet context function to update remixes
           await handleGetMyRemixes(true, remixes);
           setDataLoadStatus((prev) => ({ ...prev, remixes: true }));
         } catch (error) {
@@ -519,7 +500,6 @@ export const RoyaltyManagement: React.FC = () => {
         // 6. Additionally, check royalties for token #0 explicitly since it seems to be tracking royalties
         try {
           await fetchRoyaltyInfo('0');
-          // Don't log message about explicitly checking token #0
         } catch (error) {
           console.error('Error checking royalties for token #0:', error);
         }
@@ -593,7 +573,6 @@ export const RoyaltyManagement: React.FC = () => {
       }
 
       setIsLoading(true);
-      console.log(`Claiming royalty for token #${specificTokenId}`);
       await handleClaimRoyalty(specificTokenId);
 
       // Refresh royalty info after claiming
@@ -633,17 +612,21 @@ export const RoyaltyManagement: React.FC = () => {
       myIPs.forEach((ip, index) => {
         // Use the actual token ID from the mapping, or fall back to index
         const tokenId = tokenMapping[index] || index.toString();
+        const imageUrls = getImageUrl(ip, index);
 
         processed.push({
           id: `regular-${index}`,
           tokenId: tokenId, // Use the actual token ID
-          title: ip.title,
+          title: ip.title || `IP Asset #${tokenId}`,
           category: getCategoryName(Number(ip.category)),
           type: getLicenseType(Number(ip.licenseopt)),
-          imageUrl: `https://picsum.photos/seed/${index + 1}/200`, // Placeholder image
+          imageUrl: imageUrls.primary,
+          fallbackImageUrl: imageUrls.fallback,
           earnings: Number(ethers.formatEther(ip.royaltyPercentage || '0')), // Convert from wei to ETH
           pendingRoyalty: royaltyInfo[tokenId]?.pending || '0',
           createdAt: new Date().toISOString(), // Placeholder date
+          description: ip.description || '',
+          fileUpload: ip.fileUpload || '',
         });
 
         // Fetch royalty info for this IP
@@ -661,18 +644,22 @@ export const RoyaltyManagement: React.FC = () => {
           const tokenId = remix.tokenId
             ? remix.tokenId.toString()
             : index.toString();
+          const imageUrls = getImageUrl(remix.ip, index, true);
 
           processed.push({
             id: `remix-${index}`,
             tokenId: tokenId,
-            title: remix.ip.title || 'Untitled Remix',
+            title: remix.ip.title || `Remix #${tokenId}`,
             category: getCategoryName(Number(remix.ip.category)),
             type: 'remix',
-            imageUrl: `https://picsum.photos/seed/${index + 100}/200`, 
+            imageUrl: imageUrls.primary,
+            fallbackImageUrl: imageUrls.fallback,
             earnings: Number(
               ethers.formatEther(remix.ip.royaltyPercentage || '0')
             ),
             createdAt: new Date().toISOString(), // Placeholder date
+            description: remix.ip.description || '',
+            fileUpload: remix.ip.fileUpload || '',
           });
         }
       });
@@ -681,7 +668,7 @@ export const RoyaltyManagement: React.FC = () => {
     setProcessedIPs(processed);
   }, [myIPs, myRemixes, isConnected, royaltyInfo]);
 
-  // Helper functions remain the same
+  // Helper functions
   const getCategoryName = (categoryNum: number): string => {
     const categories = [
       'Art',
@@ -692,6 +679,44 @@ export const RoyaltyManagement: React.FC = () => {
       'Other',
     ];
     return categories[categoryNum] || 'Other';
+  };
+
+  // Generate image URL with proper fallback
+  const getImageUrl = (
+    ip: any,
+    index: number,
+    isRemix: boolean = false
+  ): { primary: string; fallback: string } => {
+    // Check if there's a fileUpload URL from the blockchain
+    if (ip.fileUpload && ip.fileUpload.startsWith('http')) {
+      return {
+        primary: ip.fileUpload,
+        fallback: `https://picsum.photos/seed/${
+          isRemix ? 'remix' : 'ip'
+        }${index}/400/300`,
+      };
+    }
+
+    // Generate category-appropriate placeholder
+    const categorySeeds = {
+      Art: 'art',
+      Music: 'music',
+      Photography: 'photo',
+      Software: 'code',
+      Literature: 'book',
+      Other: 'misc',
+    };
+
+    const category = getCategoryName(Number(ip.category));
+    const seed =
+      categorySeeds[category as keyof typeof categorySeeds] || 'misc';
+
+    return {
+      primary: `https://picsum.photos/seed/${seed}${index}/400/300`,
+      fallback: `https://via.placeholder.com/400x300/3b82f6/ffffff?text=${encodeURIComponent(
+        ip.title || 'IP Asset'
+      )}`,
+    };
   };
 
   const getLicenseType = (
@@ -732,10 +757,6 @@ export const RoyaltyManagement: React.FC = () => {
     .filter(([tokenId, info]) => {
       // Find the IP in processedIPs
       const ip = processedIPs.find((ip) => ip.tokenId === tokenId);
-      // Log for debugging
-      console.log(
-        `Token #${tokenId} claimed: ${info.claimed}, type: ${ip?.type}, isYourIP: ${info.isYourIP}`
-      );
       // Include all IPs that you own, regardless of type
       return ip && info.isYourIP === true;
     })
@@ -748,30 +769,15 @@ export const RoyaltyManagement: React.FC = () => {
     try {
       // Get your token IDs first, then get the remix details
       await headerGetterContract(async (contract) => {
-        // Get account balance (how many tokens you own)
         const balance = await contract.balanceOf(account);
-        console.log(`Account has ${balance} tokens`);
-
-        // Initialize an array to store the token IDs and their data
         const remixTokens = [];
 
-        // Loop through each token owned by the account
         for (let i = 0; i < Number(balance); i++) {
           try {
-            // Get the tokenId at index i for this owner
             const tokenId = await contract.ownerToTokenIds(account, i);
-            console.log(`Found tokenId: ${tokenId}`);
-
-            // Check if this is a remix using parentIds mapping
             const parentId = await contract.parentIds(tokenId);
 
-            // If parentId is not 0, it's a remix
             if (parentId.toString() !== '0') {
-              console.log(
-                `Token #${tokenId} is a remix of parent #${parentId}`
-              );
-
-              // Get the IP details
               const ipDetails = await contract.getIP(tokenId);
 
               // Create a RemixInfo-like structure
@@ -786,10 +792,6 @@ export const RoyaltyManagement: React.FC = () => {
           }
         }
 
-        // Set the remixes in the wallet context
-        console.log(
-          `Found ${remixTokens.length} remixes owned by this account`
-        );
         await handleGetMyRemixes(true, remixTokens);
       });
     } catch (error) {
@@ -808,15 +810,10 @@ export const RoyaltyManagement: React.FC = () => {
       return value;
     };
 
-    console.log('Raw myRemixes data structure:', myRemixes);
-
     const formattedRemixes = myRemixes.map((remix, index) => {
-      console.log(`Examining remix at index ${index}:`, remix);
-
       // Check if this is a RemixInfo structure with ip and parentId fields
       const isRemixInfo =
         remix.ip !== undefined && remix.parentId !== undefined;
-      console.log(`Is this a RemixInfo structure? ${isRemixInfo}`);
 
       // Get the correct data structure
       let remixData, parentId, tokenId;
@@ -835,10 +832,6 @@ export const RoyaltyManagement: React.FC = () => {
 
         // Get the actual token ID which should be stored when fetching
         tokenId = remix.tokenId ? remix.tokenId.toString() : `${index}`;
-
-        console.log(
-          `Using RemixInfo structure. ParentId: ${parentId}, TokenId: ${tokenId}`
-        );
       } else {
         // Handle older format
         // ...existing code for non-RemixInfo structures...
@@ -852,15 +845,6 @@ export const RoyaltyManagement: React.FC = () => {
       const royaltyRate =
         remixData.royaltyPercentage ||
         (remixData[5] ? Number(remixData[5]) : 0);
-
-      console.log('Extracted remix data:', {
-        parentId,
-        title,
-        tokenId,
-        royaltyRate,
-        description,
-        coverImage,
-      });
 
       // Create a Remix object
       return {
@@ -916,7 +900,6 @@ export const RoyaltyManagement: React.FC = () => {
       try {
         // Get the IP details to check owner
         const parentIP = await contract.getIP(BigInt(parentId));
-        console.log(`Parent IP #${parentId} details:`, parentIP);
 
         // Extract the owner address, ensuring consistent format
         const ipOwnerAddress = parentIP.owner
@@ -971,9 +954,6 @@ export const RoyaltyManagement: React.FC = () => {
     // Function to handle royalty update events
     const handleRoyaltyUpdate = (event: CustomEvent) => {
       const { parentId, amount } = event.detail;
-      console.log(
-        `Royalty update detected for token #${parentId}, amount: ${amount}`
-      );
 
       // Refresh royalty info for this specific token
       if (parentId) {
@@ -989,9 +969,6 @@ export const RoyaltyManagement: React.FC = () => {
       const updated = localStorage.getItem('royaltyUpdated');
       if (updated === 'true') {
         const parentId = localStorage.getItem('lastUpdatedParentId');
-        console.log(
-          `Detected royalty update from localStorage for token #${parentId}`
-        );
 
         if (parentId) {
           fetchRoyaltyInfo(parentId);
@@ -1045,10 +1022,38 @@ export const RoyaltyManagement: React.FC = () => {
 
   // Update the tabs section to use the new handleTabChange function
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h2 className="text-2xl font-bold">Royalty Management</h2>
-        {/* Existing filter controls */}
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              Royalty Management
+            </h2>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">
+              Track and manage earnings from your intellectual property assets
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setFilterOpen(!filterOpen)}
+              className="inline-flex items-center px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              <FilterIcon size={16} className="mr-2" />
+              Filter
+            </button>
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="inline-flex items-center px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              <option value="week">Last Week</option>
+              <option value="month">Last Month</option>
+              <option value="quarter">Last Quarter</option>
+              <option value="year">Last Year</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {filterOpen && (
@@ -1065,31 +1070,68 @@ export const RoyaltyManagement: React.FC = () => {
         isLoading={isLoading}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            Total Pending Royalties
-          </h3>
-          <p className="mt-2 text-2xl font-bold">{pendingRoyaltiesTotal} ETH</p>
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl shadow-sm border border-blue-200 dark:border-blue-700 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                Pending Royalties
+              </h3>
+              <p className="mt-2 text-3xl font-bold text-blue-900 dark:text-blue-100">
+                {pendingRoyaltiesTotal} ETH
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
+                Ready to claim
+              </p>
+            </div>
+            <div className="h-12 w-12 bg-blue-500 rounded-lg flex items-center justify-center">
+              <TrendingUpIcon className="h-6 w-6 text-white" />
+            </div>
+          </div>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            Total Claimed Royalties
-          </h3>
-          <p className="mt-2 text-2xl font-bold">{claimedRoyaltiesTotal} ETH</p>
+
+        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl shadow-sm border border-green-200 dark:border-green-700 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-green-700 dark:text-green-400">
+                Total Claimed
+              </h3>
+              <p className="mt-2 text-3xl font-bold text-green-900 dark:text-green-100">
+                {claimedRoyaltiesTotal} ETH
+              </p>
+              <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                Lifetime earnings
+              </p>
+            </div>
+            <div className="h-12 w-12 bg-green-500 rounded-lg flex items-center justify-center">
+              <WalletIcon className="h-6 w-6 text-white" />
+            </div>
+          </div>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            Remixed IPs
-          </h3>
-          <p className="mt-2 text-2xl font-bold">
-            {
-              processedIPs.filter(
-                (ip) =>
-                  ip.type === 'personal' && Number(ip.pendingRoyalty || 0) > 0
-              ).length
-            }
-          </p>
+
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl shadow-sm border border-purple-200 dark:border-purple-700 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-purple-700 dark:text-purple-400">
+                Active IPs
+              </h3>
+              <p className="mt-2 text-3xl font-bold text-purple-900 dark:text-purple-100">
+                {processedIPs.length}
+              </p>
+              <p className="text-xs text-purple-600 dark:text-purple-500 mt-1">
+                {
+                  processedIPs.filter(
+                    (ip) => Number(ip.pendingRoyalty || 0) > 0
+                  ).length
+                }{' '}
+                earning
+              </p>
+            </div>
+            <div className="h-12 w-12 bg-purple-500 rounded-lg flex items-center justify-center">
+              <CopyIcon className="h-6 w-6 text-white" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1131,8 +1173,8 @@ export const RoyaltyManagement: React.FC = () => {
                 onClick={() => handleTabChange('personal')}
                 className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                   activeTab === 'personal'
-                    ? 'border-green-600 text-green-600 dark:border-green-400 dark:text-green-400'
-                    : 'border-transparent hover:text-green-600 dark:hover:text-green-400'
+                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                    : 'border-transparent hover:text-blue-600 dark:hover:text-blue-400'
                 }`}
               >
                 Personal
@@ -1190,7 +1232,7 @@ export const RoyaltyManagement: React.FC = () => {
                               ? onClaimRoyalty(selectedIP)
                               : alert('No token ID available')
                           }
-                          className="px-3 py-1 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 flex items-center"
+                          className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center"
                         >
                           <DollarSignIcon size={16} className="mr-2" />
                           Claim{' '}
@@ -1239,42 +1281,57 @@ export const RoyaltyManagement: React.FC = () => {
 
                 {/* Rest of your remix display code */}
                 {remixesByParentIP.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {remixesByParentIP.map((remixInfo, index) => (
-                      <div
-                        key={`remix-of-${selectedIP}-${index}`}
-                        className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-800"
-                      >
-                        <div className="aspect-video relative">
-                          <img
-                            src={`https://picsum.photos/seed/remix${selectedIP}-${index}/200`}
-                            alt={remixInfo.ip.title}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute top-2 right-2">
-                            <span className="rounded-full text-xs px-2 py-1 font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
-                              Remix
-                            </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {remixesByParentIP.map((remixInfo, index) => {
+                      const remixImageUrls = getImageUrl(
+                        remixInfo.ip,
+                        index,
+                        true
+                      );
+                      return (
+                        <div
+                          key={`remix-of-${selectedIP}-${index}`}
+                          className="group border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200"
+                        >
+                          <div className="relative">
+                            <OptimizedImage
+                              src={remixImageUrls.primary}
+                              fallbackSrc={remixImageUrls.fallback}
+                              alt={remixInfo.ip.title}
+                              aspectRatio="video"
+                              className="group-hover:scale-105 transition-transform duration-200"
+                            />
+                            <div className="absolute top-3 right-3">
+                              <span className="rounded-full text-xs px-3 py-1 font-medium backdrop-blur-sm bg-purple-100/90 dark:bg-purple-900/70 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-700">
+                                Remix
+                              </span>
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/60 to-transparent"></div>
+                            <div className="absolute bottom-3 left-3 right-3">
+                              <p className="text-white font-medium text-sm line-clamp-1">
+                                {remixInfo.ip.title}
+                              </p>
+                              <p className="text-white/80 text-xs">
+                                {getCategoryName(Number(remixInfo.ip.category))}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <div className="flex items-center justify-between">
+                              <span className="bg-slate-100 dark:bg-slate-700 text-xs rounded-full px-2 py-1">
+                                {getCategoryName(Number(remixInfo.ip.category))}
+                              </span>
+                              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                {ethers.formatEther(
+                                  remixInfo.ip.royaltyPercentage || '0'
+                                )}{' '}
+                                ETH
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <div className="p-3">
-                          <h4 className="font-medium text-sm truncate">
-                            {remixInfo.ip.title}
-                          </h4>
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="bg-slate-100 dark:bg-slate-700 text-xs rounded-full px-2 py-0.5">
-                              {getCategoryName(Number(remixInfo.ip.category))}
-                            </span>
-                            <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                              {ethers.formatEther(
-                                remixInfo.ip.royaltyPercentage || '0'
-                              )}{' '}
-                              ETH
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
@@ -1294,7 +1351,7 @@ export const RoyaltyManagement: React.FC = () => {
                           key={`timeline-${id}`}
                           className="flex items-center gap-3"
                         >
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                          <div className="h-2 w-2 rounded-full bg-blue-500"></div>
                           <div>
                             <p className="text-sm">
                               Royalty available: {info.pending} ETH
@@ -1311,26 +1368,28 @@ export const RoyaltyManagement: React.FC = () => {
                 </div>
               </div>
             ) : filteredIPs.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredIPs.map((ip) => (
                   <div
                     key={ip.id}
-                    className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-800"
+                    className="group border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800 hover:shadow-lg transition-all duration-200 hover:border-blue-300 dark:hover:border-blue-600"
                   >
-                    <div className="aspect-video relative">
-                      <img
+                    <div className="relative">
+                      <OptimizedImage
                         src={ip.imageUrl}
+                        fallbackSrc={ip.fallbackImageUrl}
                         alt={ip.title}
-                        className="w-full h-full object-cover"
+                        aspectRatio="video"
+                        className="group-hover:scale-105 transition-transform duration-200"
                       />
-                      <div className="absolute top-2 right-2">
+                      <div className="absolute top-3 right-3">
                         <span
-                          className={`rounded-full text-xs px-2 py-1 font-medium ${
+                          className={`rounded-full text-xs px-3 py-1 font-medium backdrop-blur-sm ${
                             ip.type === 'personal'
-                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                              ? 'bg-blue-100/90 dark:bg-blue-900/70 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
                               : ip.type === 'rent'
-                              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
-                              : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+                              ? 'bg-orange-100/90 dark:bg-orange-900/70 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700'
+                              : 'bg-purple-100/90 dark:bg-purple-900/70 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-700'
                           }`}
                         >
                           {ip.type === 'personal'
@@ -1340,13 +1399,25 @@ export const RoyaltyManagement: React.FC = () => {
                             : 'Remix'}
                         </span>
                       </div>
-                      <div className="absolute top-2 left-2">
+                      <div className="absolute top-3 left-3">
                         {Number(ip.pendingRoyalty || 0) > 0 && (
-                          <span
-                            className="animate-pulse rounded-full bg-green-500 w-3 h-3 inline-block mr-1"
-                            title={`${ip.pendingRoyalty} ETH pending royalties`}
-                          ></span>
+                          <div className="flex items-center space-x-1 bg-blue-500/90 backdrop-blur-sm rounded-full px-2 py-1">
+                            <span className="animate-pulse rounded-full bg-white w-2 h-2"></span>
+                            <span className="text-xs font-medium text-white">
+                              {Number(ip.pendingRoyalty).toFixed(4)} ETH
+                            </span>
+                          </div>
                         )}
+                      </div>
+                      {/* Gradient overlay for better text readability */}
+                      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/60 to-transparent"></div>
+                      <div className="absolute bottom-3 left-3 right-3">
+                        <p className="text-white font-medium text-sm line-clamp-1">
+                          {ip.title}
+                        </p>
+                        <p className="text-white/80 text-xs">
+                          Token #{ip.tokenId}
+                        </p>
                       </div>
                     </div>
                     <div className="p-3">
@@ -1357,7 +1428,7 @@ export const RoyaltyManagement: React.FC = () => {
                         <span className="bg-slate-100 dark:bg-slate-700 text-xs rounded-full px-2 py-0.5">
                           {ip.category}
                         </span>
-                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
                           {ip.earnings.toFixed(4)} ETH
                         </span>
                       </div>
@@ -1367,10 +1438,10 @@ export const RoyaltyManagement: React.FC = () => {
                       (globalRoyaltyInfo &&
                         Number(globalRoyaltyInfo.pending) > 0 &&
                         globalRoyaltyInfo.isYourIP === true) ? (
-                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                        <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
                           <div className="flex justify-between items-center">
                             <div>
-                              <span className="text-xs font-medium text-green-700 dark:text-green-400">
+                              <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
                                 {Number(ip.pendingRoyalty) > 0 ? (
                                   <>
                                     IP-specific royalties: {ip.pendingRoyalty}{' '}
@@ -1383,7 +1454,7 @@ export const RoyaltyManagement: React.FC = () => {
                                   </>
                                 )}
                               </span>
-                              <p className="text-xs text-green-600 dark:text-green-500">
+                              <p className="text-xs text-blue-600 dark:text-blue-500">
                                 Total claimed:{' '}
                                 {ip.tokenId
                                   ? getRoyaltyAmount(royaltyInfo, ip.tokenId)
@@ -1422,7 +1493,7 @@ export const RoyaltyManagement: React.FC = () => {
                                     onClaimRoyalty('0');
                                   }
                                 }}
-                                className="text-xs bg-green-500 hover:bg-green-600 text-white rounded-md px-2 py-1 flex items-center"
+                                className="text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-md px-2 py-1 flex items-center"
                               >
                                 <DollarSignIcon size={12} className="mr-1" />{' '}
                                 Claim
@@ -1461,7 +1532,7 @@ export const RoyaltyManagement: React.FC = () => {
                                     ? onClaimRoyalty(ip.tokenId)
                                     : alert('No token ID available')
                                 }
-                                className="p-1.5 text-sm flex items-center rounded-md bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
+                                className="p-1.5 text-sm flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40"
                                 title="Claim royalty"
                               >
                                 <DollarSignIcon size={14} className="mr-1" />
@@ -1483,7 +1554,7 @@ export const RoyaltyManagement: React.FC = () => {
                             globalRoyaltyInfo.isYourIP === true && (
                               <button
                                 onClick={() => onClaimRoyalty('0')}
-                                className="p-1.5 text-sm flex items-center rounded-md bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
+                                className="p-1.5 text-sm flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40"
                                 title="Claim from central pool"
                               >
                                 <DollarSignIcon size={14} className="mr-1" />

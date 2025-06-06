@@ -1,6 +1,6 @@
 // hooks/useRentList.ts
-import { useState } from "react";
-import { useIPXContract } from "./useIPXContract";
+import { useState } from 'react';
+import { useIPXContract } from './useIPXContract';
 
 export function useRentList() {
   const { getContract } = useIPXContract();
@@ -14,7 +14,6 @@ export function useRentList() {
       const signer = contract.runner; // ethers v6
 
       const rentListRaw = await contract.getListRent(userAddress);
-      console.log("List of rented IPs", rentListRaw);
 
       const formatted = rentListRaw.map((rent: any, index: number) => ({
         index,
@@ -24,7 +23,7 @@ export function useRentList() {
 
       setRentList(formatted);
     } catch (error: any) {
-      console.error("Failed to fetch rent list:", error.message);
+      console.error('Failed to fetch rent list:', error.message);
       // alert("Gagal mengambil daftar sewa. Lihat console.");
     } finally {
       setLoading(false);

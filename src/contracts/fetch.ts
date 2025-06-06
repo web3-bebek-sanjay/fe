@@ -56,7 +56,6 @@ export const getTheContract = async ({
 }) => {
   try {
     if (!isConnected) {
-      console.log('Wallet not connected');
       alert('Please connect your wallet first');
       return;
     }
@@ -70,16 +69,12 @@ export const getTheContract = async ({
       throw new Error('Provider not found');
     }
 
-    console.log('Getting contract with address:', contractAddress);
-
     // Request accounts to ensure wallet is unlocked
     const accounts = await provider.send('eth_requestAccounts', []);
 
     // Create the contract instance with the signer
     const signer = await provider.getSigner();
     const contract = new ethers.Contract(contractAddress, abi, signer);
-
-    console.log('Contract instance created, calling callback');
     await callback(contract);
   } catch (error) {
   } finally {
