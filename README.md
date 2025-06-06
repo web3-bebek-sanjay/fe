@@ -17,7 +17,7 @@ This repository contains the front-end implementation for a Web3 application. It
 - React.js
 - Web3.js/Ethers.js
 - MetaMask integration
-- IPFS for decentralized storage
+- Supabase for centralized storage (image)
 - Responsive UI components
 
 ## Getting Started
@@ -119,21 +119,7 @@ The application now supports:
 
 - **Image Upload**: Upload images for IP registration and remix creation
 - **File Storage**: All files are stored in Supabase with unique filenames
-- **Gallery View**: View all uploaded files at `/gallery`
 - **File Management**: Delete files when removing from forms
-
-### Accessing the Gallery
-
-After uploading files, you can view them in the gallery:
-
-- Navigate to `/gallery` to see all uploaded remix files
-- Click on images to view full-size
-- Download files directly from the gallery
-- See file metadata like size, upload date, and type
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
